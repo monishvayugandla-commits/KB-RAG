@@ -1,0 +1,201 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>KB-RAG Demo</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+            background-color: #f5f5f5;
+        }
+        .container {
+            background-color: white;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        .section {
+            margin-bottom: 30px;
+            padding: 15px;
+            border: 1px solid #ddd;
+            border-radius: 5px;
+        }
+        .section h3 {
+            margin-top: 0;
+            color: #333;
+        }
+        input[type="file"], input[type="text"], textarea {
+            width: 100%;
+            padding: 8px;
+            margin: 5px 0;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            box-sizing: border-box;
+        }
+        button {
+            background-color: #007cba;
+            color: white;
+            padding: 10px 15px;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+        }
+        button:hover {
+            background-color: #005a87;
+        }
+        .response {
+            margin-top: 15px;
+            padding: 10px;
+            background-color: #f8f9fa;
+            border-radius: 4px;
+            white-space: pre-wrap;
+        }
+        .error {
+            color: #dc3545;
+            background-color: #f8d7da;
+            border: 1px solid #f5c6cb;
+        }
+        .success {
+            color: #155724;
+            background-color: #d4edda;
+            border: 1px solid #c3e6cb;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>KB-RAG Demo</h1>
+        <p>Knowledge Base with Retrieval-Augmented Generation</p>
+
+        <!-- File Upload Section -->
+        <div class="section">
+            <h3>📄 Upload Document</h3>
+            <form id="uploadForm">
+                <input type="file" id="fileInput" accept=".pdf,.txt,.md" required>
+                <input type="text" id="sourceInput" placeholder="Source name (optional)">
+                <button type="submit">Upload & Ingest</button>
+            </form>
+            <div id="uploadResponse" class="response" style="display:none;"></div>
+        </div>
+
+        <!-- Query Section -->
+        <div class="section">
+            <h3>🔍 Ask a Question</h3>
+            <form id="queryForm">
+                <textarea id="questionInput" placeholder="Enter your question here..." rows="3" required></textarea>
+                <input type="number" id="kInput" value="5" min="1" max="20" placeholder="Number of chunks to retrieve">
+                <button type="submit">Ask Question</button>
+            </form>
+            <div id="queryResponse" class="response" style="display:none;"></div>
+        </div>
+
+        <!-- Instructions -->
+        <div class="section">
+            <h3>📝 Instructions</h3>
+            <ol>
+                <li><strong>Upload documents:</strong> Select PDF, TXT, or MD files to add to your knowledge base</li>
+                <li><strong>Ask questions:</strong> Query your uploaded documents using natural language</li>
+                <li><strong>Review answers:</strong> Get AI-generated responses with source citations</li>
+            </ol>
+            <p><strong>Supported formats:</strong> PDF (.pdf), Text (.txt), Markdown (.md)</p>
+        </div>
+    </div>
+
+    <script>
+        // Upload form handler
+        document.getElementById('uploadForm').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            
+            const fileInput = document.getElementById('fileInput');
+            const sourceInput = document.getElementById('sourceInput');
+            const responseDiv = document.getElementById('uploadResponse');
+            
+            if (!fileInput.files[0]) {
+                showResponse(responseDiv, 'Please select a file', 'error');
+                return;
+            }
+            
+            const formData = new FormData();
+            formData.append('file', fileInput.files[0]);
+            if (sourceInput.value) {
+                formData.append('source', sourceInput.value);
+            }
+            
+            try {
+                showResponse(responseDiv, 'Uploading and processing...', 'success');
+                
+                const response = await fetch('/ingest', {
+                    method: 'POST',
+                    body: formData
+                });
+                
+                const result = await response.json();
+                
+                if (response.ok) {
+                    showResponse(responseDiv, `Success! Ingested ${result.ingested} chunks from ${result.source}`, 'success');
+                    fileInput.value = '';
+                    sourceInput.value = '';
+                } else {
+                    showResponse(responseDiv, `Error: ${result.error}`, 'error');
+                }
+            } catch (error) {
+                showResponse(responseDiv, `Network error: ${error.message}`, 'error');
+            }
+        });
+        
+        // Query form handler
+        document.getElementById('queryForm').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            
+            const questionInput = document.getElementById('questionInput');
+            const kInput = document.getElementById('kInput');
+            const responseDiv = document.getElementById('queryResponse');
+            
+            if (!questionInput.value.trim()) {
+                showResponse(responseDiv, 'Please enter a question', 'error');
+                return;
+            }
+            
+            const formData = new FormData();
+            formData.append('q', questionInput.value);
+            formData.append('k', kInput.value);
+            
+            try {
+                showResponse(responseDiv, 'Searching knowledge base...', 'success');
+                
+                const response = await fetch('/query', {
+                    method: 'POST',
+                    body: formData
+                });
+                
+                const result = await response.json();
+                
+                if (response.ok) {
+                    let responseText = `Answer: ${result.answer}\n\n`;
+                    if (result.sources && result.sources.length > 0) {
+                        responseText += 'Sources:\n';
+                        result.sources.forEach((source, index) => {
+                            responseText += `${index + 1}. ${source.source} (chunk ${source.chunk})\n`;
+                        });
+                    }
+                    showResponse(responseDiv, responseText, 'success');
+                } else {
+                    showResponse(responseDiv, `Error: ${result.error}`, 'error');
+                }
+            } catch (error) {
+                showResponse(responseDiv, `Network error: ${error.message}`, 'error');
+            }
+        });
+        
+        function showResponse(element, message, type) {
+            element.textContent = message;
+            element.className = `response ${type}`;
+            element.style.display = 'block';
+        }
+    </script>
+</body>
+</html>

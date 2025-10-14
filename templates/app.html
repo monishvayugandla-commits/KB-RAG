@@ -1,0 +1,57 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>KB-RAG App</title>
+    <link rel="stylesheet" href="/static/css/app.css">
+</head>
+<body>
+    <nav>
+        <a href="/" class="logo">KB-RAG</a>
+        <div class="nav-links">
+            <a href="/">Home</a>
+            <a href="/app">App</a>
+            <a href="/docs">API Docs</a>
+        </div>
+    </nav>
+    
+    <div class="container">
+        <!-- Upload -->
+        <div class="section">
+            <h2 class="section-title">📄 Upload Documents</h2>
+            <div class="upload-area" id="uploadArea">
+                <div class="upload-icon">📁</div>
+                <h3>Drag & Drop or Click to Upload</h3>
+                <p>Supports PDF, TXT, MD files</p>
+                <input type="file" id="fileInput" accept=".pdf,.txt,.md">
+            </div>
+            <input type="text" id="sourceInput" placeholder="Source name (optional)">
+            <button class="btn" onclick="uploadDocument()">Upload Document</button>
+            <div id="uploadStatus"></div>
+        </div>
+        
+        <!-- Query -->
+        <div class="section">
+            <h2 class="section-title">🔍 Ask Questions</h2>
+            <textarea id="queryInput" placeholder="What would you like to know about your documents?"></textarea>
+            <label style="color: #b3b3b3; margin-bottom: 10px; display: block;">
+                Results to retrieve: <span id="kValue">5</span>
+            </label>
+            <input type="range" id="kInput" min="1" max="10" value="5" style="width: 100%;" oninput="document.getElementById('kValue').textContent = this.value">
+            <button class="btn" onclick="queryDocuments()">Get Answer</button>
+            <div id="queryStatus"></div>
+        </div>
+        
+        <!-- Results -->
+        <div class="section results" id="resultsSection" style="display: none;">
+            <h2 class="section-title">💡 Results</h2>
+            <div class="answer-box" id="answerBox"></div>
+            <h3 style="color: #e50914; margin-bottom: 15px;">📚 Sources</h3>
+            <div class="sources" id="sourcesBox"></div>
+        </div>
+    </div>
+    
+    <script src="/static/js/app.js"></script>
+</body>
+</html>

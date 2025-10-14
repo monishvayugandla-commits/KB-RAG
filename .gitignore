@@ -1,0 +1,37 @@
+# Environment variables
+.env
+.env.local
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.pyc
+.Python
+venv/
+.venv/
+ENV/
+
+# Project specific - Vector store and uploads
+app/vector_store/faiss_index/*
+!app/vector_store/faiss_index/.gitkeep
+uploads/*
+!uploads/.gitkeep
+
+# IDEs
+.vscode/
+.idea/
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Backup and temp files
+*.backup
+*.log
+*.tmp
+requirements_full.txt
+
+# Test files (optional)
+test_*.py
+*_test.py
