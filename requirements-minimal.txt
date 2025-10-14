@@ -1,9 +1,9 @@
 # Core Web Framework
-fastapi==0.119.0
-uvicorn==0.37.0
+fastapi==0.115.4
+uvicorn[standard]==0.32.0
 python-multipart==0.0.12
 
-# AI & LangChain (REMOVED google-generativeai - it conflicts!)
+# LangChain Core (WITHOUT google-generativeai to avoid conflicts)
 langchain==0.3.27
 langchain-community==0.3.31
 langchain-core==0.3.79
@@ -20,6 +20,3 @@ pypdf==6.1.1
 
 # Utilities
 python-dotenv==1.0.1
-tiktoken==0.8.0
-pydantic==2.10.6
-pydantic-core==2.27.2
