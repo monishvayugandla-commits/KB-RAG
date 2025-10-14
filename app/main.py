@@ -6,7 +6,11 @@ import os
 from app.ingest import ingest_file
 from app.query import answer_query
 
-app = FastAPI()
+app = FastAPI(
+    title="KB-RAG - AI Knowledge Base",
+    description="Retrieval-Augmented Generation system with Google Gemini",
+    version="1.0.0"
+)
 
 # Mount static files directory
 app.mount("/static", StaticFiles(directory="static"), name="static")
@@ -15,6 +19,7 @@ app.mount("/static", StaticFiles(directory="static"), name="static")
 os.makedirs("uploads", exist_ok=True)
 
 @app.get("/")
+@app.head("/")
 async def home():
     """Serve the home page"""
     return FileResponse("templates/index.html")
