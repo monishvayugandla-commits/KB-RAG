@@ -51,10 +51,12 @@ async def app_page():
 async def ingest(file: UploadFile = File(...)):
     """
     Upload and ingest a document into the vector store.
-    Optimized for fast uploads with streaming.
+    OPTIMIZED for speed and reliability.
     """
     try:
-        print(f"\n=== Ingest Request ===")
+        print(f"\n{'='*50}")
+        print(f"INGEST REQUEST STARTED")
+        print(f"{'='*50}")
         print(f"Filename: {file.filename}")
         print(f"Content Type: {file.content_type}")
         
@@ -72,23 +74,35 @@ async def ingest(file: UploadFile = File(...)):
         with open(file_path, "wb") as buffer:
             shutil.copyfileobj(file.file, buffer)
         
-        print(f"File saved: {file_path}")
+        print(f"✓ File saved: {file_path}")
         
         # Ingest the document
-        print("Starting ingestion...")
+        print("Starting document ingestion...")
         result = ingest_file(file_path)
-        print(f"Ingestion result: {result}")
-        print("===================\n")
+        
+        # Check if there was an error in ingest_file
+        if "error" in result:
+            print(f"✗ Ingestion failed: {result['error']}")
+            return JSONResponse(
+                status_code=500,
+                content=result
+            )
+        
+        print(f"✓ SUCCESS: Ingested {result['ingested']} chunks")
+        print(f"{'='*50}\n")
         
         return JSONResponse(content=result)
     
     except Exception as e:
-        print(f"ERROR in ingest: {str(e)}")
-        import traceback
+        error_msg = str(e)
+        print(f"\n{'='*50}")
+        print(f"✗ CRITICAL ERROR in /ingest endpoint")
+        print(f"✗ Error: {error_msg}")
         traceback.print_exc()
+        print(f"{'='*50}\n")
         return JSONResponse(
             status_code=500,
-            content={"error": str(e)}
+            content={"error": error_msg, "ingested": 0}
         )
 
 @app.post("/query")

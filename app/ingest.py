@@ -12,12 +12,29 @@ load_dotenv()
 
 INDEX_DIR = "app/vector_store/faiss_index"
 
-def chunk_text(text: str, chunk_size=1000, chunk_overlap=200):
-    """Split text into chunks for processing"""
+# Initialize embeddings model once (singleton pattern for speed)
+_embeddings = None
+
+def get_embeddings():
+    """Get or create embeddings model (singleton for performance)"""
+    global _embeddings
+    if _embeddings is None:
+        print("Initializing embeddings model (first time only)...")
+        _embeddings = HuggingFaceEmbeddings(
+            model_name="sentence-transformers/all-MiniLM-L6-v2",
+            model_kwargs={'device': 'cpu'},
+            encode_kwargs={'normalize_embeddings': True, 'batch_size': 32}
+        )
+        print("Embeddings model ready")
+    return _embeddings
+
+def chunk_text(text: str, chunk_size=800, chunk_overlap=150):
+    """Split text into smaller chunks for faster processing"""
     try:
         splitter = RecursiveCharacterTextSplitter(
             chunk_size=chunk_size,
-            chunk_overlap=chunk_overlap
+            chunk_overlap=chunk_overlap,
+            length_function=len,
         )
         docs = splitter.split_text(text)
         return docs
@@ -26,36 +43,30 @@ def chunk_text(text: str, chunk_size=1000, chunk_overlap=200):
         raise
 
 def ingest_file(path: str, source: Optional[str] = None):
-    """Ingest a file and add to vector store"""
+    """Ingest a file and add to vector store - OPTIMIZED for speed"""
     try:
-        print(f"Loading file: {path}")
+        print(f"\n[1/6] Loading file: {path}")
         raw = load_file(path)
-        print(f"File loaded, length: {len(raw)} characters")
+        print(f"[2/6] File loaded: {len(raw)} characters")
         
-        print("Chunking text...")
+        print("[3/6] Chunking text...")
         chunks = chunk_text(raw)
-        print(f"Created {len(chunks)} chunks")
+        print(f"[4/6] Created {len(chunks)} chunks")
         
+        # Prepare documents
         docs = []
         for i, chunk in enumerate(chunks):
             metadata = {"source": source or path, "chunk": i}
             docs.append(Document(page_content=chunk, metadata=metadata))
         
-        print("Initializing embeddings model...")
-        # Use free HuggingFace embeddings
-        embeddings = HuggingFaceEmbeddings(
-            model_name="sentence-transformers/all-MiniLM-L6-v2",
-            model_kwargs={'device': 'cpu'},
-            encode_kwargs={'normalize_embeddings': True}
-        )
+        print("[5/6] Generating embeddings (this may take a moment)...")
+        embeddings = get_embeddings()
         
         # Ensure directory exists
         os.makedirs(INDEX_DIR, exist_ok=True)
-        print(f"Vector store directory: {INDEX_DIR}")
         
         # Check if index exists
         index_files_exist = os.path.exists(os.path.join(INDEX_DIR, "index.faiss"))
-        print(f"Existing index found: {index_files_exist}")
         
         if index_files_exist:
             print("Loading existing vector store...")
@@ -70,14 +81,15 @@ def ingest_file(path: str, source: Optional[str] = None):
             print("Creating new vector store...")
             vectordb = FAISS.from_documents(docs, embeddings)
         
-        print("Saving vector store...")
+        print("[6/6] Saving vector store...")
         vectordb.save_local(INDEX_DIR)
-        print("Vector store saved successfully")
+        print("✓ SUCCESS: Vector store saved")
         
         return {"ingested": len(docs), "source": source or path}
         
     except Exception as e:
-        print(f"ERROR in ingest_file: {str(e)}")
+        print(f"✗ ERROR in ingest_file: {str(e)}")
         import traceback
         traceback.print_exc()
-        raise Exception(f"Failed to ingest file: {str(e)}")
+        # Return a proper error dict instead of raising
+        return {"error": f"Failed to ingest file: {str(e)}", "ingested": 0}
