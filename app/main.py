@@ -1,20 +1,22 @@
 # app/main.py
-from fastapi import FastAPI, UploadFile, File, Form
+from fastapi import FastAPI, UploadFile, File, Form, HTTPException
 from fastapi.responses import JSONResponse, FileResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi.middleware.cors import CORSMiddleware
 import os
 import shutil
+import traceback
 from app.ingest import ingest_file
 from app.query import answer_query
 
+# Create FastAPI app
 app = FastAPI(
     title="KB-RAG - AI Knowledge Base",
     description="Retrieval-Augmented Generation system with Google Gemini",
     version="1.0.0"
 )
 
-# Add CORS middleware for better frontend communication
+# Add CORS middleware
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],
@@ -23,11 +25,16 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# Mount static files directory
-app.mount("/static", StaticFiles(directory="static"), name="static")
-
-# Ensure upload directory exists
+# Ensure directories exist
 os.makedirs("uploads", exist_ok=True)
+os.makedirs("app/vector_store/faiss_index", exist_ok=True)
+
+# Health check endpoint
+@app.get("/health")
+@app.head("/health")
+async def health_check():
+    """Health check endpoint for Render"""
+    return JSONResponse({"status": "healthy"})
 
 @app.get("/")
 @app.head("/")
@@ -119,9 +126,11 @@ async def query(question: str = Form(...), k: int = Form(3)):
     
     except Exception as e:
         print(f"ERROR in query endpoint: {str(e)}")
-        import traceback
         traceback.print_exc()
         return JSONResponse(
             status_code=500,
             content={"error": str(e)}
         )
+
+# Mount static files AFTER all routes to avoid conflicts
+app.mount("/static", StaticFiles(directory="static"), name="static")
