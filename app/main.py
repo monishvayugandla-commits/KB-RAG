@@ -6,8 +6,10 @@ from fastapi.middleware.cors import CORSMiddleware
 import os
 import shutil
 import traceback
-from app.ingest import ingest_file
-from app.query import answer_query
+
+# DON'T import these at module level - causes slow startup!
+# from app.ingest import ingest_file
+# from app.query import answer_query
 
 # Create FastAPI app
 app = FastAPI(
@@ -34,7 +36,7 @@ os.makedirs("app/vector_store/faiss_index", exist_ok=True)
 @app.head("/health")
 async def health_check():
     """Health check endpoint for Render"""
-    return JSONResponse({"status": "healthy"})
+    return JSONResponse({"status": "healthy", "message": "KB-RAG is running"})
 
 @app.get("/")
 @app.head("/")
@@ -54,6 +56,9 @@ async def ingest(file: UploadFile = File(...)):
     OPTIMIZED for speed and reliability.
     """
     try:
+        # LAZY IMPORT - only load when endpoint is called!
+        from app.ingest import ingest_file
+        
         print(f"\n{'='*50}")
         print(f"INGEST REQUEST STARTED")
         print(f"{'='*50}")
@@ -111,6 +116,9 @@ async def query(question: str = Form(...), k: int = Form(3)):
     Query the RAG system with a question.
     """
     try:
+        # LAZY IMPORT - only load when endpoint is called!
+        from app.query import answer_query
+        
         print(f"\n=== Query Request ===")
         print(f"Question: {question}")
         print(f"K: {k}")
