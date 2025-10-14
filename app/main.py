@@ -2,7 +2,9 @@
 from fastapi import FastAPI, UploadFile, File, Form
 from fastapi.responses import JSONResponse, FileResponse
 from fastapi.staticfiles import StaticFiles
+from fastapi.middleware.cors import CORSMiddleware
 import os
+import shutil
 from app.ingest import ingest_file
 from app.query import answer_query
 
@@ -10,6 +12,15 @@ app = FastAPI(
     title="KB-RAG - AI Knowledge Base",
     description="Retrieval-Augmented Generation system with Google Gemini",
     version="1.0.0"
+)
+
+# Add CORS middleware for better frontend communication
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
 )
 
 # Mount static files directory
@@ -33,25 +44,41 @@ async def app_page():
 async def ingest(file: UploadFile = File(...)):
     """
     Upload and ingest a document into the vector store.
+    Optimized for fast uploads with streaming.
     """
     try:
+        print(f"\n=== Ingest Request ===")
+        print(f"Filename: {file.filename}")
+        print(f"Content Type: {file.content_type}")
+        
         if not file.filename:
             return JSONResponse(
                 status_code=400,
                 content={"error": "No filename provided"}
             )
         
-        # Save uploaded file
+        # Save uploaded file using efficient streaming
         file_path = os.path.join("uploads", file.filename)
-        with open(file_path, "wb") as f:
-            content = await file.read()
-            f.write(content)
+        print(f"Saving to: {file_path}")
+        
+        # Use shutil.copyfileobj for faster file operations
+        with open(file_path, "wb") as buffer:
+            shutil.copyfileobj(file.file, buffer)
+        
+        print(f"File saved: {file_path}")
         
         # Ingest the document
+        print("Starting ingestion...")
         result = ingest_file(file_path)
+        print(f"Ingestion result: {result}")
+        print("===================\n")
+        
         return JSONResponse(content=result)
     
     except Exception as e:
+        print(f"ERROR in ingest: {str(e)}")
+        import traceback
+        traceback.print_exc()
         return JSONResponse(
             status_code=500,
             content={"error": str(e)}
