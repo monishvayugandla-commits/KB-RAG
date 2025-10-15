@@ -40,10 +40,21 @@ os.makedirs(VECTOR_STORE_DIR, exist_ok=True)
 print(f"✓ Vector store directory: {VECTOR_STORE_DIR}")
 
 # Check environment variables at startup
-if not os.environ.get('GOOGLE_API_KEY'):
-    print("⚠️ WARNING: GOOGLE_API_KEY not set! Gemini queries will fail.")
+GOOGLE_API_KEY = os.environ.get('GOOGLE_API_KEY')
+if not GOOGLE_API_KEY:
+    print("=" * 70)
+    print("⚠️  CRITICAL: GOOGLE_API_KEY not set!")
+    print("=" * 70)
+    print("Document upload will work, but queries will fail.")
+    print("To fix this:")
+    print("1. Go to Render Dashboard")
+    print("2. Select your KB-RAG service")
+    print("3. Go to Environment tab")
+    print("4. Add: GOOGLE_API_KEY = AIzaSyCeRGwIg6V0_oYcaTeafSdbeBs3wwkk5f4")
+    print("5. Save and redeploy")
+    print("=" * 70)
 else:
-    print("✓ GOOGLE_API_KEY is set")
+    print(f"✓ GOOGLE_API_KEY is set (starts with: {GOOGLE_API_KEY[:20]}...)")
 
 # Initialize storage (handles ephemeral filesystem on Render)
 try:

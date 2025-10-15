@@ -38,6 +38,15 @@ def get_retriever(k=3):
 def answer_query(question: str, k=3, model="gemini-2.0-flash-exp"):
     """Answer a question using RAG - OPTIMIZED"""
     try:
+        # Check for API key first
+        api_key = os.getenv("GOOGLE_API_KEY")
+        if not api_key:
+            raise ValueError(
+                "GOOGLE_API_KEY environment variable not set. "
+                "Please configure it in Render dashboard: "
+                "Settings → Environment → Add GOOGLE_API_KEY"
+            )
+        
         print(f"[1/4] Getting retriever with k={k}")
         retriever = get_retriever(k)
         prompt = PromptTemplate(template=PROMPT_TEMPLATE, input_variables=["context", "question"])
@@ -45,7 +54,7 @@ def answer_query(question: str, k=3, model="gemini-2.0-flash-exp"):
         print("[2/4] Initializing Gemini LLM...")
         llm = ChatGoogleGenerativeAI(
             model=model,
-            google_api_key=os.getenv("GOOGLE_API_KEY"),
+            google_api_key=api_key,
             temperature=0.0,
             timeout=30
         )
