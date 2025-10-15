@@ -71,6 +71,11 @@ async def app_page():
     """Serve the application page"""
     return FileResponse("templates/app.html")
 
+@app.get("/test")
+async def test_page():
+    """Serve the debug test page"""
+    return FileResponse("templates/test.html")
+
 @app.post("/ingest")
 async def ingest(file: UploadFile = File(...)):
     """
