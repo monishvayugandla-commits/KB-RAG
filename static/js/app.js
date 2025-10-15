@@ -36,16 +36,17 @@ async function uploadDocument() {
         return;
     }
     
-    statusDiv.innerHTML = '<div class="loader"></div><p style="color: #b3b3b3; margin-top: 10px;">⏳ Uploading... First upload may take 20-40 seconds</p>';
+    statusDiv.innerHTML = '<div class="loader"></div><p style="color: #b3b3b3; margin-top: 10px;">⏳ Uploading... First upload may take 60-120 seconds (model download + processing)</p>';
     
     const formData = new FormData();
     formData.append('file', file);
     if (source) formData.append('source', source);
     
     try {
-        // Create abort controller with 90 second timeout (for Render)
+        // Create abort controller with 180 second timeout (for Render cold starts)
+        // Cold start: model download (40-60s) + processing (20-40s) + overhead = 100-120s
         const controller = new AbortController();
-        const timeoutId = setTimeout(() => controller.abort(), 90000); // 90 seconds
+        const timeoutId = setTimeout(() => controller.abort(), 180000); // 180 seconds (3 minutes)
         
         const response = await fetch('/ingest', {
             method: 'POST',
@@ -100,7 +101,7 @@ async function uploadDocument() {
     } catch (error) {
         console.error('Upload error:', error);
         if (error.name === 'AbortError') {
-            statusDiv.innerHTML = `<div class="status-message status-error">❌ Upload timeout (>90s). Server may be cold starting. Try again in 30 seconds.</div>`;
+            statusDiv.innerHTML = `<div class="status-message status-error">❌ Upload timeout (>180s). Server may be experiencing issues. Please try again or check Render logs.</div>`;
         } else {
             statusDiv.innerHTML = `<div class="status-message status-error">❌ Error: ${error.message}</div>`;
         }
@@ -128,9 +129,9 @@ async function queryDocuments() {
     formData.append('k', k);
     
     try {
-        // 60 second timeout for queries
+        // 120 second timeout for queries (Gemini can be slow)
         const controller = new AbortController();
-        const timeoutId = setTimeout(() => controller.abort(), 60000);
+        const timeoutId = setTimeout(() => controller.abort(), 120000);
         
         const response = await fetch('/query', {
             method: 'POST',
@@ -180,7 +181,7 @@ async function queryDocuments() {
     } catch (error) {
         console.error('Query error:', error);
         if (error.name === 'AbortError') {
-            statusDiv.innerHTML = `<div class="status-message status-error">❌ Query timeout (>60s). Server may be busy.</div>`;
+            statusDiv.innerHTML = `<div class="status-message status-error">❌ Query timeout (>120s). Server may be busy or restarting.</div>`;
         } else {
             statusDiv.innerHTML = `<div class="status-message status-error">❌ Error: ${error.message}</div>`;
         }

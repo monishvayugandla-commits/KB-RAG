@@ -56,6 +56,16 @@ if not GOOGLE_API_KEY:
 else:
     print(f"✓ GOOGLE_API_KEY is set (starts with: {GOOGLE_API_KEY[:20]}...)")
 
+print("\n" + "=" * 70)
+print("⏱️  IMPORTANT TIMING INFORMATION:")
+print("=" * 70)
+print("• First upload (cold start): 60-120 seconds")
+print("  - Model download: 40-60s")
+print("  - Document processing: 20-40s")
+print("• Subsequent uploads: 8-15 seconds (model cached)")
+print("• Queries: 3-8 seconds")
+print("=" * 70 + "\n")
+
 # Initialize storage (handles ephemeral filesystem on Render)
 try:
     storage_paths = init_storage()
@@ -72,7 +82,14 @@ upload_progress = {"status": "idle", "message": "", "progress": 0}
 @app.head("/health")
 async def health_check():
     """Health check endpoint for Render"""
-    return JSONResponse({"status": "healthy", "message": "KB-RAG is running"})
+    api_key_set = bool(os.environ.get('GOOGLE_API_KEY'))
+    return JSONResponse({
+        "status": "healthy", 
+        "message": "KB-RAG is running",
+        "api_key_configured": api_key_set,
+        "upload_dir": UPLOAD_DIR,
+        "vector_store_dir": VECTOR_STORE_DIR
+    })
 
 @app.get("/storage-info")
 async def storage_info():
