@@ -27,26 +27,22 @@ def get_retriever(k=None):
     If k is None, automatically retrieves ALL chunks for maximum accuracy
     """
     try:
-        print(f"Loading vector store from: {INDEX_DIR}")
         embeddings = get_embeddings()  # Use singleton
         
         if not os.path.exists(INDEX_DIR):
             raise Exception("Vector store not found. Please upload a document first.")
         
         vectordb = FAISS.load_local(INDEX_DIR, embeddings, allow_dangerous_deserialization=True)
-        print(f"✓ Vector store loaded")
         
         # Auto-determine k: use all chunks for best accuracy
         if k is None:
             total_chunks = vectordb.index.ntotal
             k = total_chunks
-            print(f"📊 Auto-selecting k={k} (all available chunks for maximum accuracy)")
-        else:
-            print(f"📊 Using k={k} chunks")
+            print(f"  → Using all {k} chunks for maximum accuracy")
         
         return vectordb.as_retriever(search_kwargs={"k": k})
     except Exception as e:
-        print(f"✗ Error loading vector store: {str(e)}")
+        print(f"✗ Retriever error: {str(e)}")
         raise
 
 def answer_query(question: str, k=None, model="gemini-2.0-flash-exp"):
@@ -59,19 +55,12 @@ def answer_query(question: str, k=None, model="gemini-2.0-flash-exp"):
         api_key = os.getenv("GOOGLE_API_KEY")
         if not api_key:
             raise ValueError(
-                "GOOGLE_API_KEY environment variable not set. "
-                "Please configure it in Render dashboard: "
-                "Settings → Environment → Add GOOGLE_API_KEY"
+                "GOOGLE_API_KEY not set. Set it in environment or .env file"
             )
         
-        if k is None:
-            print(f"[1/4] Getting retriever (auto-selecting all chunks)")
-        else:
-            print(f"[1/4] Getting retriever with k={k}")
         retriever = get_retriever(k)
         prompt = PromptTemplate(template=PROMPT_TEMPLATE, input_variables=["context", "question"])
 
-        print("[2/4] Initializing Gemini LLM...")
         llm = ChatGoogleGenerativeAI(
             model=model,
             google_api_key=api_key,
@@ -79,7 +68,6 @@ def answer_query(question: str, k=None, model="gemini-2.0-flash-exp"):
             timeout=30
         )
 
-        print("[3/4] Creating QA chain...")
         qa = RetrievalQA.from_chain_type(
             llm=llm,
             chain_type="stuff",
@@ -88,13 +76,9 @@ def answer_query(question: str, k=None, model="gemini-2.0-flash-exp"):
             chain_type_kwargs={"prompt": prompt}
         )
 
-        print("[4/4] Running query...")
         result = qa(question)
-        print("✓ Query completed")
         return result
         
     except Exception as e:
-        print(f"✗ Error in answer_query: {str(e)}")
-        import traceback
-        traceback.print_exc()
+        print(f"✗ Query error: {str(e)}")
         raise

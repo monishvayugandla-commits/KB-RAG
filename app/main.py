@@ -39,32 +39,12 @@ VECTOR_STORE_DIR = os.environ.get("VECTOR_STORE_DIR", "/tmp/vector_store/faiss_i
 os.makedirs(VECTOR_STORE_DIR, exist_ok=True)
 print(f"✓ Vector store directory: {VECTOR_STORE_DIR}")
 
-# Check environment variables at startup
+# Check environment variables at startup (only show detailed warnings if missing)
 GOOGLE_API_KEY = os.environ.get('GOOGLE_API_KEY')
 if not GOOGLE_API_KEY:
-    print("=" * 70)
-    print("⚠️  CRITICAL: GOOGLE_API_KEY not set!")
-    print("=" * 70)
-    print("Document upload will work, but queries will fail.")
-    print("To fix this:")
-    print("1. Go to Render Dashboard")
-    print("2. Select your KB-RAG service")
-    print("3. Go to Environment tab")
-    print("4. Add: GOOGLE_API_KEY = AIzaSyCeRGwIg6V0_oYcaTeafSdbeBs3wwkk5f4")
-    print("5. Save and redeploy")
-    print("=" * 70)
+    print("⚠️  GOOGLE_API_KEY not set - queries will fail")
 else:
-    print(f"✓ GOOGLE_API_KEY is set (starts with: {GOOGLE_API_KEY[:20]}...)")
-
-print("\n" + "=" * 70)
-print("⏱️  IMPORTANT TIMING INFORMATION:")
-print("=" * 70)
-print("• First upload (cold start): 60-120 seconds")
-print("  - Model download: 40-60s")
-print("  - Document processing: 20-40s")
-print("• Subsequent uploads: 8-15 seconds (model cached)")
-print("• Queries: 3-8 seconds")
-print("=" * 70 + "\n")
+    print(f"✓ GOOGLE_API_KEY is set")
 
 # Initialize storage (handles ephemeral filesystem on Render)
 try:
@@ -138,13 +118,7 @@ async def ingest(file: UploadFile = File(...), source: str = Form(None)):
         # LAZY IMPORT - only load when endpoint is called!
         from app.ingest import ingest_file
         
-        print(f"\n{'='*60}")
-        print(f"INGEST REQUEST STARTED")
-        print(f"{'='*60}")
-        print(f"Filename: {file.filename}")
-        print(f"Content Type: {file.content_type}")
-        print(f"Source: {source}")
-        print(f"Upload directory: {UPLOAD_DIR}")
+        print(f"📄 Upload: {file.filename}")
         
         if not file.filename:
             upload_progress = {"status": "error", "message": "No filename provided", "progress": 0}
@@ -159,13 +133,11 @@ async def ingest(file: UploadFile = File(...), source: str = Form(None)):
         # Create temp directory for this upload
         tmp_dir = tempfile.mkdtemp(dir=UPLOAD_DIR)
         file_path = os.path.join(tmp_dir, file.filename)
-        print(f"Saving to: {file_path}")
         
         # Save file with error handling
         try:
             with open(file_path, "wb") as buffer:
                 shutil.copyfileobj(file.file, buffer)
-            print(f"✓ File saved successfully: {file_path}")
         except Exception as save_error:
             print(f"✗ Failed to save file: {save_error}")
             traceback.print_exc()
@@ -182,11 +154,9 @@ async def ingest(file: UploadFile = File(...), source: str = Form(None)):
             )
         
         file_size = os.path.getsize(file_path)
-        print(f"✓ File verified: {file_size} bytes")
         
         # Ingest the document
         upload_progress = {"status": "processing", "message": "Processing document...", "progress": 40}
-        print("Starting document ingestion...")
         
         result = ingest_file(file_path, source=source or file.filename)
         
@@ -199,8 +169,7 @@ async def ingest(file: UploadFile = File(...), source: str = Form(None)):
                 content=result
             )
         
-        print(f"✓ SUCCESS: Ingested {result.get('ingested', 0)} chunks")
-        print(f"{'='*60}\n")
+        print(f"✓ Ingested {result.get('ingested', 0)} chunks")
         
         upload_progress = {"status": "complete", "message": "Upload successful!", "progress": 100}
         
@@ -259,14 +228,9 @@ async def query(question: str = Form(...)):
         # LAZY IMPORT - only load when endpoint is called!
         from app.query import answer_query
         
-        print(f"\n{'='*60}")
-        print(f"QUERY REQUEST")
-        print(f"{'='*60}")
-        print(f"Question: {question}")
-        print(f"K: Auto (all chunks)")
+        print(f"❓ Query: {question[:50]}{'...' if len(question) > 50 else ''}")
         
         result = answer_query(question, k=None)  # None = use all chunks
-        print(f"Raw result from answer_query: {result}")
         
         # Format response for frontend
         response = {
@@ -276,15 +240,13 @@ async def query(question: str = Form(...)):
         
         # Extract source documents
         if "source_documents" in result:
-            print(f"Found {len(result['source_documents'])} source documents")
             for i, doc in enumerate(result["source_documents"]):
                 response["sources"].append({
                     "source": doc.metadata.get("source", "Unknown"),
                     "chunk": doc.page_content[:200] + "..." if len(doc.page_content) > 200 else doc.page_content
                 })
         
-        print(f"✓ Query completed successfully")
-        print(f"{'='*60}\n")
+        print(f"✓ Answer generated ({len(result['source_documents'])} sources)")
         
         return JSONResponse(
             status_code=200,
@@ -293,23 +255,15 @@ async def query(question: str = Form(...)):
     
     except Exception as e:
         error_msg = str(e)
-        tb = traceback.format_exc()
         
-        print(f"\n{'='*60}")
-        print(f"✗ ERROR in /query endpoint")
-        print(f"✗ Error type: {type(e).__name__}")
-        print(f"✗ Error message: {error_msg}")
-        print(f"✗ Full traceback:")
-        print(tb)
-        print(f"{'='*60}\n")
+        print(f"✗ Query error: {error_msg}")
         
         # ALWAYS return JSON, never HTML
         return JSONResponse(
             status_code=500,
             content={
                 "error": f"{type(e).__name__}: {error_msg}",
-                "answer": "An error occurred while processing your query.",
-                "details": tb.split('\n')[-3:-1]
+                "answer": "An error occurred while processing your query."
             },
             media_type="application/json"  # Explicitly set content-type
         )
