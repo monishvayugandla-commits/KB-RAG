@@ -60,6 +60,7 @@ async function uploadDocument() {
         const responseText = await response.text();
         console.log('Upload response status:', response.status);
         console.log('Upload response text (first 500 chars):', responseText.substring(0, 500));
+        console.log('Full response text:', responseText); // Log full response for debugging
         
         // Check if we got a response
         if (!responseText) {
@@ -70,20 +71,20 @@ async function uploadDocument() {
         const contentType = response.headers.get('content-type');
         console.log('Content-Type:', contentType);
         
-        if (!contentType || !contentType.includes('application/json')) {
-            console.error('Server returned non-JSON response:', responseText);
-            statusDiv.innerHTML = `<div class="status-message status-error">❌ Error: Server returned non-JSON response. Check console for details.</div>`;
-            return;
-        }
-        
-        // Try to parse JSON
+        // Try to parse as JSON regardless of content-type (more defensive)
         let result;
         try {
             result = JSON.parse(responseText);
         } catch (parseError) {
             console.error('Failed to parse JSON:', parseError);
             console.error('Response text was:', responseText);
-            statusDiv.innerHTML = `<div class="status-message status-error">❌ Error: Failed to parse server response. Check console.</div>`;
+            
+            // If it's HTML, show a more helpful error
+            if (responseText.includes('<!DOCTYPE') || responseText.includes('<html')) {
+                statusDiv.innerHTML = `<div class="status-message status-error">❌ Error: Server returned HTML instead of JSON. The service may be restarting or crashed. Check Render logs.</div>`;
+            } else {
+                statusDiv.innerHTML = `<div class="status-message status-error">❌ Error: ${responseText.substring(0, 200)}</div>`;
+            }
             return;
         }
         

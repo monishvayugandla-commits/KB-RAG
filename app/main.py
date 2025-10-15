@@ -225,7 +225,8 @@ async def ingest(file: UploadFile = File(...), source: str = Form(None)):
                 "error": f"{type(e).__name__}: {error_msg}",
                 "ingested": 0,
                 "details": tb.split('\n')[-3:-1]  # Last 2 lines of traceback
-            }
+            },
+            media_type="application/json"  # Explicitly set content-type
         )
 
 @app.post("/query")
@@ -299,7 +300,8 @@ async def query(question: str = Form(...), k: int = Form(3)):
                 "error": f"{type(e).__name__}: {error_msg}",
                 "answer": "An error occurred while processing your query.",
                 "details": tb.split('\n')[-3:-1]
-            }
+            },
+            media_type="application/json"  # Explicitly set content-type
         )
 
 # Mount static files AFTER all routes to avoid conflicts
