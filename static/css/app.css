@@ -121,6 +121,33 @@ nav {
     color: #e50914;
 }
 
+/* Sidebar Search */
+.sidebar-search {
+    padding: 15px;
+    background: #1a1a1a;
+    border-bottom: 1px solid #333;
+}
+
+.sidebar-search input {
+    width: 100%;
+    padding: 10px;
+    background: #222;
+    border: 1px solid #333;
+    border-radius: 6px;
+    color: #fff;
+    font-size: 0.9rem;
+    outline: none;
+    transition: border-color 0.3s;
+}
+
+.sidebar-search input:focus {
+    border-color: #e50914;
+}
+
+.sidebar-search input::placeholder {
+    color: #666;
+}
+
 .history-list {
     flex: 1;
     overflow-y: auto;

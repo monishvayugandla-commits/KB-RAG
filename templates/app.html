@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>KB-RAG App</title>
-    <link rel="stylesheet" href="/static/css/app.css?v=5.1">
+    <link rel="stylesheet" href="/static/css/app.css?v=5.2">
 </head>
 <body>
     <nav>
@@ -24,8 +24,11 @@
         <!-- Sidebar - Chat History -->
         <aside class="sidebar collapsed" id="sidebar">
             <div class="sidebar-header">
-                <h3>📜 Chat History</h3>
+                <h3>Chat History</h3>
                 <button class="clear-history-btn" onclick="clearHistory()" title="Clear all history">🗑️</button>
+            </div>
+            <div class="sidebar-search">
+                <input type="text" id="historySearch" placeholder="🔍 Search history..." oninput="filterHistory()">
             </div>
             <div class="history-list" id="historyList">
                 <div class="empty-history">
@@ -71,6 +74,6 @@
         </main>
     </div>
     
-    <script src="/static/js/app.js?v=5.1"></script>
+    <script src="/static/js/app.js?v=5.2"></script>
 </body>
 </html>

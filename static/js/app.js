@@ -67,13 +67,29 @@ function renderHistory() {
         const timeAgo = getTimeAgo(date);
         
         return `
-            <div class="history-item" onclick="loadHistoryItem(${item.id})">
+            <div class="history-item" onclick="loadHistoryItem(${item.id})" data-question="${escapeHtml(item.question).toLowerCase()}" data-answer="${escapeHtml(item.answer).toLowerCase()}">
                 <div class="history-item-question">❓ ${escapeHtml(item.question)}</div>
                 <div class="history-item-answer">${escapeHtml(item.answer)}</div>
                 <div class="history-item-time">${timeAgo}</div>
             </div>
         `;
     }).join('');
+}
+
+function filterHistory() {
+    const searchTerm = document.getElementById('historySearch').value.toLowerCase();
+    const historyItems = document.querySelectorAll('.history-item');
+    
+    historyItems.forEach(item => {
+        const question = item.getAttribute('data-question') || '';
+        const answer = item.getAttribute('data-answer') || '';
+        
+        if (question.includes(searchTerm) || answer.includes(searchTerm)) {
+            item.style.display = 'block';
+        } else {
+            item.style.display = 'none';
+        }
+    });
 }
 
 function loadHistoryItem(id) {
