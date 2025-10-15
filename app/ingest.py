@@ -65,8 +65,14 @@ def chunk_text(text: str, chunk_size=800, chunk_overlap=150):
         print(f"Error in chunk_text: {str(e)}")
         raise
 
-def ingest_file(path: str, source: Optional[str] = None):
-    """Ingest a file and add to vector store - OPTIMIZED for speed and memory"""
+def ingest_file(path: str, source: Optional[str] = None, replace_existing: bool = True):
+    """Ingest a file and add to vector store - OPTIMIZED for speed and memory
+    
+    Args:
+        path: Path to the file to ingest
+        source: Optional source name for metadata
+        replace_existing: If True, replaces existing vector store. If False, adds to it.
+    """
     try:
         import time
         import gc
@@ -115,11 +121,24 @@ def ingest_file(path: str, source: Optional[str] = None):
         print("[5/6] Processing vector store...")
         step_start = time.time()
         
+        # IMPORTANT: Handle replace_existing flag
+        if replace_existing and index_files_exist:
+            print("      🗑️  Clearing old vector store (replace mode)...")
+            import shutil
+            try:
+                # Remove old index files
+                shutil.rmtree(INDEX_DIR)
+                os.makedirs(INDEX_DIR, exist_ok=True)
+                index_files_exist = False
+                print("      ✓ Old vector store cleared")
+            except Exception as e:
+                print(f"      ⚠ Warning: Could not clear old store: {e}")
+        
         # Process in smaller batches if we have many documents
         if len(docs) > 50:
             print(f"      Processing {len(docs)} documents in batches to save memory...")
             
-            if index_files_exist:
+            if index_files_exist and not replace_existing:
                 vectordb = FAISS.load_local(
                     INDEX_DIR, 
                     embeddings, 
@@ -141,7 +160,7 @@ def ingest_file(path: str, source: Optional[str] = None):
                 gc.collect()
         else:
             # Process all at once for small document sets
-            if index_files_exist:
+            if index_files_exist and not replace_existing:
                 print("      Loading existing vector store...")
                 vectordb = FAISS.load_local(
                     INDEX_DIR, 
