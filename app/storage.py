@@ -1,58 +1,27 @@
 # app/storage.py
 """
-Persistent storage handler for Render deployment.
-Render has ephemeral filesystem - this provides persistence options.
+Storage handler for Render deployment.
+Uses /tmp directory which is writable on Render.
 """
 import os
 import shutil
 from pathlib import Path
 from typing import Optional
-import tempfile
 
-# Storage configuration
-STORAGE_MODE = os.getenv("STORAGE_MODE", "local")  # local, s3, gcs
-PERSISTENT_DIR = os.getenv("PERSISTENT_DIR", "/opt/render/project/.data")
-
-# Local paths (ephemeral on Render)
-UPLOADS_DIR = "uploads"
-VECTOR_STORE_DIR = "app/vector_store/faiss_index"
+# Storage configuration - use /tmp on Render
+STORAGE_MODE = os.getenv("STORAGE_MODE", "local")
+UPLOADS_DIR = os.getenv("UPLOAD_DIR", "/tmp/uploads")
+VECTOR_STORE_DIR = os.getenv("VECTOR_STORE_DIR", "/tmp/vector_store/faiss_index")
 
 def init_storage():
     """Initialize storage directories"""
-    # Try to use persistent directory if available
-    if STORAGE_MODE == "local":
-        base_dir = PERSISTENT_DIR if os.path.exists(os.path.dirname(PERSISTENT_DIR)) else "."
-        
-        uploads_path = os.path.join(base_dir, "uploads") if base_dir != "." else UPLOADS_DIR
-        vector_path = os.path.join(base_dir, "vector_store", "faiss_index") if base_dir != "." else VECTOR_STORE_DIR
-        
-        os.makedirs(uploads_path, exist_ok=True)
-        os.makedirs(vector_path, exist_ok=True)
-        
-        # Create symlinks if using persistent directory
-        if base_dir != ".":
-            if not os.path.exists(UPLOADS_DIR):
-                try:
-                    os.symlink(uploads_path, UPLOADS_DIR, target_is_directory=True)
-                except (OSError, NotImplementedError):
-                    # Fallback: just use the local directories
-                    os.makedirs(UPLOADS_DIR, exist_ok=True)
-            
-            vector_parent = os.path.dirname(VECTOR_STORE_DIR)
-            os.makedirs(vector_parent, exist_ok=True)
-            if not os.path.exists(VECTOR_STORE_DIR):
-                try:
-                    os.symlink(vector_path, VECTOR_STORE_DIR, target_is_directory=True)
-                except (OSError, NotImplementedError):
-                    os.makedirs(VECTOR_STORE_DIR, exist_ok=True)
-        
-        return {
-            "uploads": uploads_path if base_dir != "." else UPLOADS_DIR,
-            "vector_store": vector_path if base_dir != "." else VECTOR_STORE_DIR
-        }
+    os.makedirs(UPLOADS_DIR, exist_ok=True)
+    os.makedirs(VECTOR_STORE_DIR, exist_ok=True)
     
-    # For other storage modes (S3, GCS), implement as needed
-    raise NotImplementedError(f"Storage mode {STORAGE_MODE} not implemented yet")
+    return {
+        "uploads": UPLOADS_DIR,
+        "vector_store": VECTOR_STORE_DIR
+    }
 
 def get_storage_info():
     """Get storage information for debugging"""
@@ -60,16 +29,21 @@ def get_storage_info():
         "storage_mode": STORAGE_MODE,
         "uploads_dir": UPLOADS_DIR,
         "vector_store_dir": VECTOR_STORE_DIR,
-        "persistent_dir": PERSISTENT_DIR,
         "uploads_exists": os.path.exists(UPLOADS_DIR),
         "vector_store_exists": os.path.exists(VECTOR_STORE_DIR),
     }
     
     if os.path.exists(VECTOR_STORE_DIR):
-        info["vector_store_files"] = os.listdir(VECTOR_STORE_DIR)
+        try:
+            info["vector_store_files"] = os.listdir(VECTOR_STORE_DIR)
+        except:
+            info["vector_store_files"] = []
     
     if os.path.exists(UPLOADS_DIR):
-        info["uploaded_files"] = os.listdir(UPLOADS_DIR)
+        try:
+            info["uploaded_files"] = os.listdir(UPLOADS_DIR)
+        except:
+            info["uploaded_files"] = []
     
     return info
 

@@ -8,7 +8,9 @@ import os
 from app.ingest import get_embeddings
 
 load_dotenv()
-INDEX_DIR = "app/vector_store/faiss_index"
+
+# Use /tmp for vector store on Render (writable location)
+INDEX_DIR = os.environ.get("VECTOR_STORE_DIR", "/tmp/vector_store/faiss_index")
 
 PROMPT_TEMPLATE = """You are given a user's question and a set of relevant document excerpts below.
 Using these documents, answer the user's question succinctly. If the answer is not present, say you don't know and offer to search further.

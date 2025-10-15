@@ -10,7 +10,8 @@ from typing import Optional
 
 load_dotenv()
 
-INDEX_DIR = "app/vector_store/faiss_index"
+# Use /tmp for vector store on Render (writable location)
+INDEX_DIR = os.environ.get("VECTOR_STORE_DIR", "/tmp/vector_store/faiss_index")
 
 # Initialize embeddings model once (singleton pattern for speed)
 _embeddings = None
