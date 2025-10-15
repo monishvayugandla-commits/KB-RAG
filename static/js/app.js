@@ -1,3 +1,124 @@
+// Chat History Management
+let chatHistory = [];
+
+// Load history from localStorage on page load
+document.addEventListener('DOMContentLoaded', () => {
+    loadHistory();
+});
+
+function loadHistory() {
+    const savedHistory = localStorage.getItem('kb-rag-history');
+    if (savedHistory) {
+        chatHistory = JSON.parse(savedHistory);
+        renderHistory();
+    }
+}
+
+function saveHistory() {
+    localStorage.setItem('kb-rag-history', JSON.stringify(chatHistory));
+}
+
+function addToHistory(question, answer, sources) {
+    const historyItem = {
+        id: Date.now(),
+        question: question,
+        answer: answer,
+        sources: sources || [],
+        timestamp: new Date().toISOString()
+    };
+    
+    chatHistory.unshift(historyItem); // Add to beginning
+    
+    // Keep only last 50 items
+    if (chatHistory.length > 50) {
+        chatHistory = chatHistory.slice(0, 50);
+    }
+    
+    saveHistory();
+    renderHistory();
+}
+
+function renderHistory() {
+    const historyList = document.getElementById('historyList');
+    
+    if (chatHistory.length === 0) {
+        historyList.innerHTML = `
+            <div class="empty-history">
+                <p>No chat history yet</p>
+                <small>Your questions and answers will appear here</small>
+            </div>
+        `;
+        return;
+    }
+    
+    historyList.innerHTML = chatHistory.map(item => {
+        const date = new Date(item.timestamp);
+        const timeAgo = getTimeAgo(date);
+        
+        return `
+            <div class="history-item" onclick="loadHistoryItem(${item.id})">
+                <div class="history-item-question">❓ ${escapeHtml(item.question)}</div>
+                <div class="history-item-answer">${escapeHtml(item.answer)}</div>
+                <div class="history-item-time">${timeAgo}</div>
+            </div>
+        `;
+    }).join('');
+}
+
+function loadHistoryItem(id) {
+    const item = chatHistory.find(h => h.id === id);
+    if (!item) return;
+    
+    // Populate query input
+    document.getElementById('queryInput').value = item.question;
+    
+    // Show results
+    const resultsSection = document.getElementById('resultsSection');
+    const answerBox = document.getElementById('answerBox');
+    const sourcesBox = document.getElementById('sourcesBox');
+    
+    answerBox.textContent = item.answer;
+    
+    if (item.sources && item.sources.length > 0) {
+        sourcesBox.innerHTML = item.sources.map(source => 
+            `<div class="source-item">
+                <strong>${source.source || 'Unknown'}</strong>
+                <p>${source.chunk || ''}</p>
+            </div>`
+        ).join('');
+    } else {
+        sourcesBox.innerHTML = '<p>No sources available</p>';
+    }
+    
+    resultsSection.style.display = 'block';
+    resultsSection.scrollIntoView({ behavior: 'smooth' });
+}
+
+function clearHistory() {
+    if (confirm('Are you sure you want to clear all chat history?')) {
+        chatHistory = [];
+        localStorage.removeItem('kb-rag-history');
+        renderHistory();
+    }
+}
+
+function getTimeAgo(date) {
+    const seconds = Math.floor((new Date() - date) / 1000);
+    
+    if (seconds < 60) return 'Just now';
+    if (seconds < 3600) return Math.floor(seconds / 60) + ' min ago';
+    if (seconds < 86400) return Math.floor(seconds / 3600) + ' hrs ago';
+    if (seconds < 604800) return Math.floor(seconds / 86400) + ' days ago';
+    
+    return date.toLocaleDateString();
+}
+
+function escapeHtml(text) {
+    const div = document.createElement('div');
+    div.textContent = text;
+    return div.innerHTML;
+}
+
 // Upload area drag and drop
 const uploadArea = document.getElementById('uploadArea');
 const fileInput = document.getElementById('fileInput');
@@ -175,6 +296,9 @@ async function queryDocuments() {
             }
             
             resultsSection.style.display = 'block';
+            
+            // Add to history
+            addToHistory(query, result.answer, result.sources);
         } else {
             statusDiv.innerHTML = `<div class="status-message status-error">❌ Error: ${result.error || 'Unknown error'}</div>`;
         }

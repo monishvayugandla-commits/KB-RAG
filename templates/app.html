@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>KB-RAG App</title>
-    <link rel="stylesheet" href="/static/css/app.css?v=4.0">
+    <link rel="stylesheet" href="/static/css/app.css?v=5.0">
 </head>
 <body>
     <nav>
@@ -15,38 +15,57 @@
         </div>
     </nav>
     
-    <div class="container">
-        <!-- Upload -->
-        <div class="section">
-            <h2 class="section-title">📄 Upload Documents</h2>
-            <div class="upload-area" id="uploadArea">
-                <div class="upload-icon">📁</div>
-                <h3>Drag & Drop or Click to Upload</h3>
-                <p>Supports PDF, TXT, MD files</p>
-                <input type="file" id="fileInput" accept=".pdf,.txt,.md">
+    <div class="app-layout">
+        <!-- Sidebar - Chat History -->
+        <aside class="sidebar" id="sidebar">
+            <div class="sidebar-header">
+                <h3>📜 Chat History</h3>
+                <button class="clear-history-btn" onclick="clearHistory()" title="Clear all history">🗑️</button>
             </div>
-            <input type="text" id="sourceInput" placeholder="Source name (optional)">
-            <button class="btn" onclick="uploadDocument()">Upload Document</button>
-            <div id="uploadStatus"></div>
-        </div>
-        
-        <!-- Query -->
-        <div class="section">
-            <h2 class="section-title">🔍 Ask Questions</h2>
-            <textarea id="queryInput" placeholder="What would you like to know about your documents?"></textarea>
-            <button class="btn" onclick="queryDocuments()">Get Answer</button>
-            <div id="queryStatus"></div>
-        </div>
-        
-        <!-- Results -->
-        <div class="section results" id="resultsSection" style="display: none;">
-            <h2 class="section-title">💡 Results</h2>
-            <div class="answer-box" id="answerBox"></div>
-            <h3 style="color: #e50914; margin-bottom: 15px;">📚 Sources</h3>
-            <div class="sources" id="sourcesBox"></div>
-        </div>
+            <div class="history-list" id="historyList">
+                <div class="empty-history">
+                    <p>No chat history yet</p>
+                    <small>Your questions and answers will appear here</small>
+                </div>
+            </div>
+        </aside>
+
+        <!-- Main Content -->
+        <main class="main-content">
+            <div class="container">
+                <!-- Upload -->
+                <div class="section">
+                    <h2 class="section-title">📄 Upload Documents</h2>
+                    <div class="upload-area" id="uploadArea">
+                        <div class="upload-icon">📁</div>
+                        <h3>Drag & Drop or Click to Upload</h3>
+                        <p>Supports PDF, TXT, MD files</p>
+                        <input type="file" id="fileInput" accept=".pdf,.txt,.md">
+                    </div>
+                    <input type="text" id="sourceInput" placeholder="Source name (optional)">
+                    <button class="btn" onclick="uploadDocument()">Upload Document</button>
+                    <div id="uploadStatus"></div>
+                </div>
+                
+                <!-- Query -->
+                <div class="section">
+                    <h2 class="section-title">🔍 Ask Questions</h2>
+                    <textarea id="queryInput" placeholder="What would you like to know about your documents?"></textarea>
+                    <button class="btn" onclick="queryDocuments()">Get Answer</button>
+                    <div id="queryStatus"></div>
+                </div>
+                
+                <!-- Results -->
+                <div class="section results" id="resultsSection" style="display: none;">
+                    <h2 class="section-title">💡 Results</h2>
+                    <div class="answer-box" id="answerBox"></div>
+                    <h3 style="color: #e50914; margin-bottom: 15px;">📚 Sources</h3>
+                    <div class="sources" id="sourcesBox"></div>
+                </div>
+            </div>
+        </main>
     </div>
     
-    <script src="/static/js/app.js?v=4.0"></script>
+    <script src="/static/js/app.js?v=5.0"></script>
 </body>
 </html>
