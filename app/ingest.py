@@ -1,9 +1,9 @@
 # app/ingest.py
-from langchain_text_splitters import RecursiveCharacterTextSplitter # type: ignore
-from langchain_huggingface import HuggingFaceEmbeddings # type: ignore
-from langchain_community.vectorstores import FAISS # type: ignore
-from langchain_core.documents import Document # type: ignore
-from dotenv import load_dotenv # type: ignore
+from langchain_text_splitters import RecursiveCharacterTextSplitter
+from langchain_huggingface import HuggingFaceEmbeddings
+from langchain_community.vectorstores import FAISS
+from langchain_core.documents import Document
+from dotenv import load_dotenv
 import os
 from .utils import load_file
 from typing import Optional

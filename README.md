@@ -125,7 +125,3 @@ Contributions welcome! This project demonstrates:
 - Multi-document knowledge base management
 - Modern web UI with persistent chat history
 - Cloud deployment best practices
-
-## 📄 License
-
-MIT License - Free to use and modify
