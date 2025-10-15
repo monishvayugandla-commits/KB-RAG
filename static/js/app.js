@@ -4,7 +4,18 @@ let chatHistory = [];
 // Load history from localStorage on page load
 document.addEventListener('DOMContentLoaded', () => {
     loadHistory();
+    
+    // Start with sidebar closed
+    const sidebar = document.getElementById('sidebar');
+    if (sidebar) {
+        sidebar.classList.add('collapsed');
+    }
 });
+
+function toggleSidebar() {
+    const sidebar = document.getElementById('sidebar');
+    sidebar.classList.toggle('collapsed');
+}
 
 function loadHistory() {
     const savedHistory = localStorage.getItem('kb-rag-history');

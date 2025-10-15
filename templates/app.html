@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>KB-RAG App</title>
-    <link rel="stylesheet" href="/static/css/app.css?v=5.0">
+    <link rel="stylesheet" href="/static/css/app.css?v=5.1">
 </head>
 <body>
     <nav>
@@ -16,8 +16,13 @@
     </nav>
     
     <div class="app-layout">
+        <!-- Toggle Button for Sidebar -->
+        <button class="sidebar-toggle" id="sidebarToggle" onclick="toggleSidebar()" title="Toggle Chat History">
+            📜
+        </button>
+
         <!-- Sidebar - Chat History -->
-        <aside class="sidebar" id="sidebar">
+        <aside class="sidebar collapsed" id="sidebar">
             <div class="sidebar-header">
                 <h3>📜 Chat History</h3>
                 <button class="clear-history-btn" onclick="clearHistory()" title="Clear all history">🗑️</button>
@@ -66,6 +71,6 @@
         </main>
     </div>
     
-    <script src="/static/js/app.js?v=5.0"></script>
+    <script src="/static/js/app.js?v=5.1"></script>
 </body>
 </html>

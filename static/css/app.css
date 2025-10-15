@@ -42,6 +42,37 @@ nav {
 .app-layout {
     display: flex;
     min-height: calc(100vh - 81px); /* Full height minus nav */
+    position: relative;
+}
+
+/* Sidebar Toggle Button */
+.sidebar-toggle {
+    position: fixed;
+    left: 10px;
+    top: 100px;
+    z-index: 1000;
+    background: #e50914;
+    border: none;
+    border-radius: 50%;
+    width: 50px;
+    height: 50px;
+    font-size: 1.5rem;
+    cursor: pointer;
+    box-shadow: 0 4px 12px rgba(229, 9, 20, 0.4);
+    transition: all 0.3s;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.sidebar-toggle:hover {
+    background: #f40612;
+    transform: scale(1.1);
+    box-shadow: 0 6px 16px rgba(229, 9, 20, 0.6);
+}
+
+.sidebar-toggle:active {
+    transform: scale(0.95);
 }
 
 /* Sidebar - Chat History */
@@ -52,6 +83,13 @@ nav {
     display: flex;
     flex-direction: column;
     overflow: hidden;
+    transition: transform 0.3s ease, width 0.3s ease;
+}
+
+.sidebar.collapsed {
+    transform: translateX(-100%);
+    width: 0;
+    border-right: none;
 }
 
 .sidebar-header {
