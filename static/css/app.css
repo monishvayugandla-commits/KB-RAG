@@ -289,6 +289,86 @@ input[type="file"] {
     display: none;
 }
 
+/* Uploaded Documents List */
+.uploaded-docs {
+    margin-top: 20px;
+    padding-top: 20px;
+    border-top: 1px solid #333;
+}
+
+.doc-item {
+    background: #222;
+    border: 1px solid #333;
+    border-radius: 8px;
+    padding: 12px 15px;
+    margin-bottom: 10px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    transition: all 0.3s;
+}
+
+.doc-item:hover {
+    background: #2a2a2a;
+    border-color: #e50914;
+}
+
+.doc-item-info {
+    flex: 1;
+}
+
+.doc-item-name {
+    color: #fff;
+    font-size: 0.95rem;
+    font-weight: 500;
+    margin-bottom: 4px;
+}
+
+.doc-item-meta {
+    color: #999;
+    font-size: 0.8rem;
+}
+
+.doc-item-delete {
+    background: none;
+    border: none;
+    color: #999;
+    font-size: 1.2rem;
+    cursor: pointer;
+    transition: color 0.3s;
+    padding: 5px 10px;
+}
+
+.doc-item-delete:hover {
+    color: #e50914;
+}
+
+/* Clear All Button */
+.btn-clear-all {
+    background: linear-gradient(135deg, #e50914 0%, #b20710 100%);
+    color: #fff;
+    border: none;
+    padding: 8px 16px;
+    border-radius: 6px;
+    cursor: pointer;
+    font-size: 0.85rem;
+    font-weight: 600;
+    transition: all 0.3s;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+}
+
+.btn-clear-all:hover {
+    background: linear-gradient(135deg, #b20710 0%, #8a0509 100%);
+    transform: translateY(-2px);
+    box-shadow: 0 4px 12px rgba(229, 9, 20, 0.4);
+}
+
+.btn-clear-all:active {
+    transform: translateY(0);
+}
+
 input[type="text"],
 textarea {
     width: 100%;

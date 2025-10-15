@@ -149,6 +149,16 @@ function escapeHtml(text) {
 // Upload area drag and drop
 const uploadArea = document.getElementById('uploadArea');
 const fileInput = document.getElementById('fileInput');
+let uploadedDocuments = []; // Track uploaded documents
+
+// Load uploaded documents from localStorage
+document.addEventListener('DOMContentLoaded', () => {
+    const saved = localStorage.getItem('kb-rag-documents');
+    if (saved) {
+        uploadedDocuments = JSON.parse(saved);
+        renderUploadedDocs();
+    }
+});
 
 uploadArea.addEventListener('click', () => fileInput.click());
 
@@ -165,96 +175,159 @@ uploadArea.addEventListener('drop', (e) => {
     e.preventDefault();
     uploadArea.classList.remove('dragover');
     fileInput.files = e.dataTransfer.files;
-    uploadDocument();
+    uploadDocuments();
 });
 
 fileInput.addEventListener('change', () => {
     if (fileInput.files.length > 0) {
-        uploadArea.querySelector('h3').textContent = fileInput.files[0].name;
+        const count = fileInput.files.length;
+        uploadArea.querySelector('h3').textContent = `${count} file${count > 1 ? 's' : ''} selected`;
     }
 });
 
-async function uploadDocument() {
-    const file = fileInput.files[0];
-    const source = document.getElementById('sourceInput').value;
-    const statusDiv = document.getElementById('uploadStatus');
+function renderUploadedDocs() {
+    const docsSection = document.getElementById('uploadedDocs');
+    const docsList = document.getElementById('docsList');
     
-    if (!file) {
-        statusDiv.innerHTML = '<div class="status-message status-error">Please select a file</div>';
+    if (uploadedDocuments.length === 0) {
+        docsSection.style.display = 'none';
         return;
     }
     
-    statusDiv.innerHTML = '<div class="loader"></div><p style="color: #b3b3b3; margin-top: 10px;">⏳ Uploading... First upload may take 60-120 seconds (model download + processing)</p>';
+    docsSection.style.display = 'block';
+    docsList.innerHTML = uploadedDocuments.map(doc => `
+        <div class="doc-item">
+            <div class="doc-item-info">
+                <div class="doc-item-name">📄 ${doc.filename}</div>
+                <div class="doc-item-meta">${doc.chunks} chunks • Uploaded ${new Date(doc.timestamp).toLocaleString()}</div>
+            </div>
+            <button class="doc-item-delete" onclick="removeDocument('${doc.filename}')" title="Remove document">🗑️</button>
+        </div>
+    `).join('');
+}
+
+function removeDocument(filename) {
+    if (confirm(`Remove "${filename}" from the knowledge base?`)) {
+        uploadedDocuments = uploadedDocuments.filter(doc => doc.filename !== filename);
+        localStorage.setItem('kb-rag-documents', JSON.stringify(uploadedDocuments));
+        renderUploadedDocs();
+    }
+}
+
+async function clearAllDocuments() {
+    if (!confirm('⚠️ This will DELETE ALL documents and reset your entire knowledge base. This cannot be undone. Continue?')) {
+        return;
+    }
     
-    const formData = new FormData();
-    formData.append('file', file);
-    if (source) formData.append('source', source);
+    const statusDiv = document.getElementById('uploadStatus');
+    statusDiv.innerHTML = '<div class="loader"></div><p style="color: #b3b3b3; margin-top: 10px;">🗑️ Clearing knowledge base...</p>';
     
     try {
-        // Create abort controller with 180 second timeout (for Render cold starts)
-        // Cold start: model download (40-60s) + processing (20-40s) + overhead = 100-120s
-        const controller = new AbortController();
-        const timeoutId = setTimeout(() => controller.abort(), 180000); // 180 seconds (3 minutes)
-        
-        const response = await fetch('/ingest', {
-            method: 'POST',
-            body: formData,
-            signal: controller.signal
+        const response = await fetch('/clear', {
+            method: 'POST'
         });
         
-        clearTimeout(timeoutId);
+        const result = await response.json();
         
-        // Read response as text first (defensive)
-        const responseText = await response.text();
-        console.log('Upload response status:', response.status);
-        console.log('Upload response text (first 500 chars):', responseText.substring(0, 500));
-        console.log('Full response text:', responseText); // Log full response for debugging
-        
-        // Check if we got a response
-        if (!responseText) {
-            throw new Error('Server returned empty response');
-        }
-        
-        // Check content type
-        const contentType = response.headers.get('content-type');
-        console.log('Content-Type:', contentType);
-        
-        // Try to parse as JSON regardless of content-type (more defensive)
-        let result;
-        try {
-            result = JSON.parse(responseText);
-        } catch (parseError) {
-            console.error('Failed to parse JSON:', parseError);
-            console.error('Response text was:', responseText);
-            
-            // If it's HTML, show a more helpful error
-            if (responseText.includes('<!DOCTYPE') || responseText.includes('<html')) {
-                statusDiv.innerHTML = `<div class="status-message status-error">❌ Error: Server returned HTML instead of JSON. The service may be restarting or crashed. Check Render logs.</div>`;
-            } else {
-                statusDiv.innerHTML = `<div class="status-message status-error">❌ Error: ${responseText.substring(0, 200)}</div>`;
-            }
-            return;
-        }
-        
-        // Check response status
         if (response.ok) {
-            const timeInfo = result.time_seconds ? ` (${result.time_seconds}s)` : '';
-            statusDiv.innerHTML = `<div class="status-message status-success">✅ Successfully ingested ${result.ingested} chunks!${timeInfo}</div>`;
-            fileInput.value = '';
-            uploadArea.querySelector('h3').textContent = 'Drag & Drop or Click to Upload';
+            // Clear localStorage
+            uploadedDocuments = [];
+            localStorage.removeItem('kb-rag-documents');
+            renderUploadedDocs();
+            
+            statusDiv.innerHTML = '<div class="status-message status-success">✅ Knowledge base cleared! Upload new documents to start fresh.</div>';
         } else {
-            const errorMsg = result.error || result.details || 'Upload failed';
-            console.error('Server error:', result);
-            statusDiv.innerHTML = `<div class="status-message status-error">❌ Error: ${errorMsg}</div>`;
+            throw new Error(result.error || 'Failed to clear knowledge base');
         }
     } catch (error) {
-        console.error('Upload error:', error);
-        if (error.name === 'AbortError') {
-            statusDiv.innerHTML = `<div class="status-message status-error">❌ Upload timeout (>180s). Server may be experiencing issues. Please try again or check Render logs.</div>`;
-        } else {
-            statusDiv.innerHTML = `<div class="status-message status-error">❌ Error: ${error.message}</div>`;
+        console.error('Error clearing documents:', error);
+        statusDiv.innerHTML = `<div class="status-message status-error">❌ Error: ${error.message}</div>`;
+    }
+}
+
+async function uploadDocuments() {
+    const files = fileInput.files;
+    const source = document.getElementById('sourceInput').value;
+    const statusDiv = document.getElementById('uploadStatus');
+    
+    if (files.length === 0) {
+        statusDiv.innerHTML = '<div class="status-message status-error">Please select at least one file</div>';
+        return;
+    }
+    
+    statusDiv.innerHTML = `<div class="loader"></div><p style="color: #b3b3b3; margin-top: 10px;">⏳ Uploading ${files.length} document${files.length > 1 ? 's' : ''}... This may take a while for multiple files.</p>`;
+    
+    let successCount = 0;
+    let failCount = 0;
+    
+    for (let i = 0; i < files.length; i++) {
+        const file = files[i];
+        const formData = new FormData();
+        formData.append('file', file);
+        if (source) formData.append('source', source);
+        
+        try {
+            statusDiv.innerHTML = `<div class="loader"></div><p style="color: #b3b3b3; margin-top: 10px;">⏳ Uploading ${i + 1}/${files.length}: ${file.name}...</p>`;
+            
+            const controller = new AbortController();
+            const timeoutId = setTimeout(() => controller.abort(), 180000);
+            
+            const response = await fetch('/ingest', {
+                method: 'POST',
+                body: formData,
+                signal: controller.signal
+            });
+            
+            clearTimeout(timeoutId);
+            
+            const responseText = await response.text();
+            
+            if (!responseText) {
+                throw new Error('Server returned empty response');
+            }
+            
+            let result;
+            try {
+                result = JSON.parse(responseText);
+            } catch (parseError) {
+                throw new Error(`Failed to parse response: ${responseText.substring(0, 100)}`);
+            }
+            
+            if (response.ok && result.ingested) {
+                successCount++;
+                
+                // Add to uploaded documents list
+                uploadedDocuments.push({
+                    filename: file.name,
+                    chunks: result.ingested,
+                    timestamp: new Date().toISOString()
+                });
+            } else {
+                failCount++;
+                console.error(`Failed to upload ${file.name}:`, result);
+            }
+        } catch (error) {
+            failCount++;
+            console.error(`Error uploading ${file.name}:`, error);
         }
     }
+    
+    // Save to localStorage
+    localStorage.setItem('kb-rag-documents', JSON.stringify(uploadedDocuments));
+    renderUploadedDocs();
+    
+    // Show final status
+    if (successCount > 0 && failCount === 0) {
+        statusDiv.innerHTML = `<div class="status-message status-success">✅ Successfully uploaded ${successCount} document${successCount > 1 ? 's' : ''}!</div>`;
+    } else if (successCount > 0 && failCount > 0) {
+        statusDiv.innerHTML = `<div class="status-message status-success">⚠️ Uploaded ${successCount} document${successCount > 1 ? 's' : ''}, ${failCount} failed</div>`;
+    } else {
+        statusDiv.innerHTML = `<div class="status-message status-error">❌ Failed to upload documents</div>`;
+    }
+    
+    // Reset form
+    fileInput.value = '';
+    uploadArea.querySelector('h3').textContent = 'Drag & Drop or Click to Upload';
 }
 
 async function queryDocuments() {

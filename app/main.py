@@ -158,7 +158,18 @@ async def ingest(file: UploadFile = File(...), source: str = Form(None)):
         # Ingest the document
         upload_progress = {"status": "processing", "message": "Processing document...", "progress": 40}
         
-        result = ingest_file(file_path, source=source or file.filename)
+        # Check if vector store already exists - if yes, ADD to it (don't replace)
+        # This allows multiple documents to coexist in the knowledge base
+        from app.ingest import INDEX_DIR
+        index_exists = os.path.exists(os.path.join(INDEX_DIR, "index.faiss"))
+        replace_mode = not index_exists  # Only replace if no index exists (first upload)
+        
+        result = ingest_file(file_path, source=source or file.filename, replace_existing=replace_mode)
+        
+        if replace_mode:
+            print(f"  ℹ️  First document - created new vector store")
+        else:
+            print(f"  ℹ️  Added to existing vector store")
         
         # Check if there was an error in ingest_file
         if isinstance(result, dict) and "error" in result:
@@ -205,6 +216,64 @@ async def ingest(file: UploadFile = File(...), source: str = Form(None)):
                 "details": tb.split('\n')[-3:-1]  # Last 2 lines of traceback
             },
             media_type="application/json"  # Explicitly set content-type
+        )
+
+@app.post("/clear")
+async def clear_knowledge_base():
+    """
+    Clear all documents from the vector store and reset the knowledge base.
+    """
+    try:
+        from app.ingest import INDEX_DIR
+        import gc
+        
+        print("🗑️ Clearing knowledge base...")
+        
+        # Check if vector store exists
+        if os.path.exists(INDEX_DIR):
+            try:
+                # Remove the entire vector store directory
+                shutil.rmtree(INDEX_DIR)
+                print("  ✓ Vector store deleted")
+            except Exception as e:
+                print(f"  ✗ Failed to delete vector store: {e}")
+                return JSONResponse(
+                    status_code=500,
+                    content={"error": f"Failed to delete vector store: {str(e)}"}
+                )
+        else:
+            print("  ℹ️  Vector store was already empty")
+        
+        # Force garbage collection
+        gc.collect()
+        
+        print("✓ Knowledge base cleared successfully")
+        
+        return JSONResponse(
+            status_code=200,
+            content={
+                "message": "Knowledge base cleared successfully",
+                "cleared": True
+            }
+        )
+    
+    except Exception as e:
+        error_msg = str(e)
+        tb = traceback.format_exc()
+        
+        print(f"\n{'='*60}")
+        print(f"✗ ERROR in /clear endpoint")
+        print(f"✗ Error: {error_msg}")
+        print(f"✗ Traceback:")
+        print(tb)
+        print(f"{'='*60}\n")
+        
+        return JSONResponse(
+            status_code=500,
+            content={
+                "error": f"Failed to clear knowledge base: {error_msg}",
+                "cleared": False
+            }
         )
 
 @app.post("/query")
