@@ -42,7 +42,7 @@ uvicorn app.main:app --reload --port 8000
 - **Free to Use**: Uses Google Gemini Pro (generous free tier) and HuggingFace embeddings (completely free)
 - **No OpenAI Required**: Runs entirely on Google's Gemini API
 - **Fast Embeddings**: Local HuggingFace sentence transformers for vector embeddings
-- **Multiple Formats**: Supports PDF, TXT, and MD file uploads
+- **Multiple Formats**: Supports Multiple PDF, TXT, and MD file uploads
 
 ## API Endpoints
 

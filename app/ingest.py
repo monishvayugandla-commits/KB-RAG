@@ -49,12 +49,28 @@ def get_embeddings():
     return _embeddings
 
 def chunk_text(text: str, chunk_size=800, chunk_overlap=150):
-    """Split text into smaller chunks for faster processing"""
+    """Split text into semantically meaningful chunks with optimal overlap
+    
+    Args:
+        text: Raw document text to chunk
+        chunk_size: Target size for each chunk (default: 800 chars)
+        chunk_overlap: Overlap between chunks to preserve context (default: 150 chars)
+        
+    Returns:
+        list[str]: List of text chunks
+        
+    Strategy:
+        - Uses RecursiveCharacterTextSplitter for intelligent splitting
+        - Preserves sentence and paragraph boundaries when possible
+        - Maintains context across chunks with overlap
+        - Optimizes for both retrieval accuracy and LLM context window
+    """
     try:
         splitter = RecursiveCharacterTextSplitter(
             chunk_size=chunk_size,
             chunk_overlap=chunk_overlap,
             length_function=len,
+            separators=["\n\n", "\n", ". ", " ", ""]  # Smart splitting hierarchy
         )
         docs = splitter.split_text(text)
         return docs
