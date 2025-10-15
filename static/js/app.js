@@ -230,10 +230,13 @@ async function clearAllDocuments() {
         const result = await response.json();
         
         if (response.ok) {
-            // Clear localStorage
+            // Clear localStorage and document list
             uploadedDocuments = [];
             localStorage.removeItem('kb-rag-documents');
             renderUploadedDocs();
+            
+            // Reset upload area text
+            uploadArea.querySelector('h3').textContent = 'Drag & Drop or Click to Upload';
             
             statusDiv.innerHTML = '<div class="status-message status-success">✅ Knowledge base cleared! Upload new documents to start fresh.</div>';
         } else {
@@ -243,6 +246,12 @@ async function clearAllDocuments() {
         console.error('Error clearing documents:', error);
         statusDiv.innerHTML = `<div class="status-message status-error">❌ Error: ${error.message}</div>`;
     }
+}
+
+// Check if any documents exist when first upload starts
+function shouldReplaceVectorStore() {
+    // If localStorage is empty, this is definitely a fresh start
+    return uploadedDocuments.length === 0;
 }
 
 async function uploadDocuments() {
@@ -259,6 +268,7 @@ async function uploadDocuments() {
     
     let successCount = 0;
     let failCount = 0;
+    let isFirstDocumentOfSession = false;
     
     for (let i = 0; i < files.length; i++) {
         const file = files[i];
@@ -295,6 +305,13 @@ async function uploadDocuments() {
             
             if (response.ok && result.ingested) {
                 successCount++;
+                
+                // If this is the first document (vector store was empty), clear old localStorage
+                if (result.is_first_document && i === 0) {
+                    console.log('First document - clearing old document list');
+                    uploadedDocuments = [];
+                    isFirstDocumentOfSession = true;
+                }
                 
                 // Add to uploaded documents list
                 uploadedDocuments.push({

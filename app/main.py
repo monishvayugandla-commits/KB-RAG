@@ -168,8 +168,11 @@ async def ingest(file: UploadFile = File(...), source: str = Form(None)):
         
         if replace_mode:
             print(f"  ℹ️  First document - created new vector store")
+            # Add flag to indicate this was a fresh start (frontend should clear old document list)
+            result['is_first_document'] = True
         else:
             print(f"  ℹ️  Added to existing vector store")
+            result['is_first_document'] = False
         
         # Check if there was an error in ingest_file
         if isinstance(result, dict) and "error" in result:
