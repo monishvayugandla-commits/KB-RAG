@@ -24,14 +24,22 @@ def get_embeddings():
         import time
         start = time.time()
         
-        _embeddings = HuggingFaceEmbeddings(
-            model_name="sentence-transformers/all-MiniLM-L6-v2",
-            model_kwargs={'device': 'cpu'},
-            encode_kwargs={'normalize_embeddings': True, 'batch_size': 32}
-        )
-        
-        elapsed = time.time() - start
-        print(f"✓ Embeddings model ready in {elapsed:.2f}s")
+        try:
+            _embeddings = HuggingFaceEmbeddings(
+                model_name="sentence-transformers/all-MiniLM-L6-v2",
+                model_kwargs={'device': 'cpu'},
+                encode_kwargs={
+                    'normalize_embeddings': True, 
+                    'batch_size': 16,  # Reduced from 32 for lower memory
+                    'show_progress_bar': False
+                }
+            )
+            
+            elapsed = time.time() - start
+            print(f"✓ Embeddings model ready in {elapsed:.2f}s")
+        except Exception as e:
+            print(f"✗ Failed to load embeddings model: {e}")
+            raise
     else:
         print("✓ Using cached embeddings model")
     return _embeddings

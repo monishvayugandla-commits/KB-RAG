@@ -38,6 +38,9 @@ except Exception as e:
     os.makedirs("uploads", exist_ok=True)
     os.makedirs("app/vector_store/faiss_index", exist_ok=True)
 
+# Progress tracking for long operations
+upload_progress = {"status": "idle", "message": "", "progress": 0}
+
 # Health check endpoint
 @app.get("/health")
 @app.head("/health")
@@ -51,6 +54,11 @@ async def storage_info():
     info = get_storage_info()
     info["vector_store_initialized"] = check_vector_store_exists()
     return JSONResponse(info)
+
+@app.get("/progress")
+async def get_progress():
+    """Get progress of current upload operation"""
+    return JSONResponse(upload_progress)
 
 @app.get("/")
 @app.head("/")
@@ -69,7 +77,11 @@ async def ingest(file: UploadFile = File(...)):
     Upload and ingest a document into the vector store.
     OPTIMIZED for speed and reliability.
     """
+    global upload_progress
+    
     try:
+        upload_progress = {"status": "starting", "message": "Initializing upload...", "progress": 5}
+        
         # LAZY IMPORT - only load when endpoint is called!
         from app.ingest import ingest_file
         
@@ -80,12 +92,14 @@ async def ingest(file: UploadFile = File(...)):
         print(f"Content Type: {file.content_type}")
         
         if not file.filename:
+            upload_progress = {"status": "error", "message": "No filename provided", "progress": 0}
             return JSONResponse(
                 status_code=400,
                 content={"error": "No filename provided"}
             )
         
         # Save uploaded file using efficient streaming
+        upload_progress = {"status": "saving", "message": "Saving file...", "progress": 20}
         file_path = os.path.join("uploads", file.filename)
         print(f"Saving to: {file_path}")
         
@@ -96,12 +110,14 @@ async def ingest(file: UploadFile = File(...)):
         print(f"✓ File saved: {file_path}")
         
         # Ingest the document
+        upload_progress = {"status": "processing", "message": "Processing document...", "progress": 40}
         print("Starting document ingestion...")
         result = ingest_file(file_path)
         
         # Check if there was an error in ingest_file
         if "error" in result:
             print(f"✗ Ingestion failed: {result['error']}")
+            upload_progress = {"status": "error", "message": result['error'], "progress": 0}
             return JSONResponse(
                 status_code=500,
                 content=result
@@ -109,6 +125,8 @@ async def ingest(file: UploadFile = File(...)):
         
         print(f"✓ SUCCESS: Ingested {result['ingested']} chunks")
         print(f"{'='*50}\n")
+        
+        upload_progress = {"status": "complete", "message": "Upload successful!", "progress": 100}
         
         return JSONResponse(content=result)
     
@@ -119,6 +137,9 @@ async def ingest(file: UploadFile = File(...)):
         print(f"✗ Error: {error_msg}")
         traceback.print_exc()
         print(f"{'='*50}\n")
+        
+        upload_progress = {"status": "error", "message": error_msg, "progress": 0}
+        
         return JSONResponse(
             status_code=500,
             content={"error": error_msg, "ingested": 0}

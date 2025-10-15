@@ -36,29 +36,48 @@ async function uploadDocument() {
         return;
     }
     
-    statusDiv.innerHTML = '<div class="loader"></div>';
+    statusDiv.innerHTML = '<div class="loader"></div><p style="color: #b3b3b3; margin-top: 10px;">⏳ Uploading... First upload may take 20-40 seconds</p>';
     
     const formData = new FormData();
     formData.append('file', file);
     if (source) formData.append('source', source);
     
     try {
+        // Create abort controller with 90 second timeout (for Render)
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), 90000); // 90 seconds
+        
         const response = await fetch('/ingest', {
             method: 'POST',
-            body: formData
+            body: formData,
+            signal: controller.signal
         });
+        
+        clearTimeout(timeoutId);
+        
+        // Check if response is JSON
+        const contentType = response.headers.get('content-type');
+        if (!contentType || !contentType.includes('application/json')) {
+            throw new Error('Server returned non-JSON response. Check server logs.');
+        }
         
         const result = await response.json();
         
         if (response.ok) {
-            statusDiv.innerHTML = `<div class="status-message status-success">✅ Successfully ingested ${result.ingested} chunks!</div>`;
+            const timeInfo = result.time_seconds ? ` (${result.time_seconds}s)` : '';
+            statusDiv.innerHTML = `<div class="status-message status-success">✅ Successfully ingested ${result.ingested} chunks!${timeInfo}</div>`;
             fileInput.value = '';
             uploadArea.querySelector('h3').textContent = 'Drag & Drop or Click to Upload';
         } else {
-            statusDiv.innerHTML = `<div class="status-message status-error">❌ Error: ${result.error}</div>`;
+            statusDiv.innerHTML = `<div class="status-message status-error">❌ Error: ${result.error || 'Upload failed'}</div>`;
         }
     } catch (error) {
-        statusDiv.innerHTML = `<div class="status-message status-error">❌ Error: ${error.message}</div>`;
+        console.error('Upload error:', error);
+        if (error.name === 'AbortError') {
+            statusDiv.innerHTML = `<div class="status-message status-error">❌ Upload timeout (>90s). Server may be cold starting. Try again in 30 seconds.</div>`;
+        } else {
+            statusDiv.innerHTML = `<div class="status-message status-error">❌ Error: ${error.message}</div>`;
+        }
     }
 }
 
@@ -75,7 +94,7 @@ async function queryDocuments() {
         return;
     }
     
-    statusDiv.innerHTML = '<div class="loader"></div>';
+    statusDiv.innerHTML = '<div class="loader"></div><p style="color: #b3b3b3; margin-top: 10px;">⏳ Querying...</p>';
     resultsSection.style.display = 'none';
     
     const formData = new FormData();
@@ -83,10 +102,23 @@ async function queryDocuments() {
     formData.append('k', k);
     
     try {
+        // 60 second timeout for queries
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), 60000);
+        
         const response = await fetch('/query', {
             method: 'POST',
-            body: formData
+            body: formData,
+            signal: controller.signal
         });
+        
+        clearTimeout(timeoutId);
+        
+        // Check if response is JSON
+        const contentType = response.headers.get('content-type');
+        if (!contentType || !contentType.includes('application/json')) {
+            throw new Error('Server returned non-JSON response. The service may be restarting.');
+        }
         
         const result = await response.json();
         
@@ -121,7 +153,11 @@ async function queryDocuments() {
         }
     } catch (error) {
         console.error('Query error:', error);
-        statusDiv.innerHTML = `<div class="status-message status-error">❌ Error: ${error.message}</div>`;
+        if (error.name === 'AbortError') {
+            statusDiv.innerHTML = `<div class="status-message status-error">❌ Query timeout (>60s). Server may be busy.</div>`;
+        } else {
+            statusDiv.innerHTML = `<div class="status-message status-error">❌ Error: ${error.message}</div>`;
+        }
     }
 }
 

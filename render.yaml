@@ -1,0 +1,16 @@
+services:
+  - type: web
+    name: kb-rag
+    env: python
+    region: oregon
+    plan: free
+    buildCommand: pip install -r requirements.txt
+    startCommand: uvicorn app.main:app --host 0.0.0.0 --port $PORT --timeout-keep-alive 120 --timeout-graceful-shutdown 30 --limit-max-requests 1000
+    envVars:
+      - key: PYTHON_VERSION
+        value: 3.12.6
+      - key: STORAGE_MODE
+        value: local
+      - key: GOOGLE_API_KEY
+        sync: false
+    healthCheckPath: /health
