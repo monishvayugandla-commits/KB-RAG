@@ -55,21 +55,47 @@ async function uploadDocument() {
         
         clearTimeout(timeoutId);
         
-        // Check if response is JSON
-        const contentType = response.headers.get('content-type');
-        if (!contentType || !contentType.includes('application/json')) {
-            throw new Error('Server returned non-JSON response. Check server logs.');
+        // Read response as text first (defensive)
+        const responseText = await response.text();
+        console.log('Upload response status:', response.status);
+        console.log('Upload response text (first 500 chars):', responseText.substring(0, 500));
+        
+        // Check if we got a response
+        if (!responseText) {
+            throw new Error('Server returned empty response');
         }
         
-        const result = await response.json();
+        // Check content type
+        const contentType = response.headers.get('content-type');
+        console.log('Content-Type:', contentType);
         
+        if (!contentType || !contentType.includes('application/json')) {
+            console.error('Server returned non-JSON response:', responseText);
+            statusDiv.innerHTML = `<div class="status-message status-error">❌ Error: Server returned non-JSON response. Check console for details.</div>`;
+            return;
+        }
+        
+        // Try to parse JSON
+        let result;
+        try {
+            result = JSON.parse(responseText);
+        } catch (parseError) {
+            console.error('Failed to parse JSON:', parseError);
+            console.error('Response text was:', responseText);
+            statusDiv.innerHTML = `<div class="status-message status-error">❌ Error: Failed to parse server response. Check console.</div>`;
+            return;
+        }
+        
+        // Check response status
         if (response.ok) {
             const timeInfo = result.time_seconds ? ` (${result.time_seconds}s)` : '';
             statusDiv.innerHTML = `<div class="status-message status-success">✅ Successfully ingested ${result.ingested} chunks!${timeInfo}</div>`;
             fileInput.value = '';
             uploadArea.querySelector('h3').textContent = 'Drag & Drop or Click to Upload';
         } else {
-            statusDiv.innerHTML = `<div class="status-message status-error">❌ Error: ${result.error || 'Upload failed'}</div>`;
+            const errorMsg = result.error || result.details || 'Upload failed';
+            console.error('Server error:', result);
+            statusDiv.innerHTML = `<div class="status-message status-error">❌ Error: ${errorMsg}</div>`;
         }
     } catch (error) {
         console.error('Upload error:', error);

@@ -6,6 +6,7 @@ from fastapi.middleware.cors import CORSMiddleware
 import os
 import shutil
 import traceback
+import tempfile
 from app.storage import init_storage, get_storage_info, check_vector_store_exists
 
 # DON'T import these at module level - causes slow startup!
@@ -28,15 +29,29 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+# Use /tmp for uploads on Render (ephemeral but writable)
+UPLOAD_DIR = os.environ.get("UPLOAD_DIR", "/tmp/uploads")
+os.makedirs(UPLOAD_DIR, exist_ok=True)
+print(f"✓ Upload directory: {UPLOAD_DIR}")
+
+# Vector store directory
+VECTOR_STORE_DIR = os.environ.get("VECTOR_STORE_DIR", "/tmp/vector_store/faiss_index")
+os.makedirs(VECTOR_STORE_DIR, exist_ok=True)
+print(f"✓ Vector store directory: {VECTOR_STORE_DIR}")
+
+# Check environment variables at startup
+if not os.environ.get('GOOGLE_API_KEY'):
+    print("⚠️ WARNING: GOOGLE_API_KEY not set! Gemini queries will fail.")
+else:
+    print("✓ GOOGLE_API_KEY is set")
+
 # Initialize storage (handles ephemeral filesystem on Render)
 try:
     storage_paths = init_storage()
     print(f"✓ Storage initialized: {storage_paths}")
 except Exception as e:
     print(f"⚠ Storage initialization warning: {e}")
-    # Fallback to basic directories
-    os.makedirs("uploads", exist_ok=True)
-    os.makedirs("app/vector_store/faiss_index", exist_ok=True)
+    # Fallback already created above
 
 # Progress tracking for long operations
 upload_progress = {"status": "idle", "message": "", "progress": 0}
@@ -77,10 +92,10 @@ async def test_page():
     return FileResponse("templates/test.html")
 
 @app.post("/ingest")
-async def ingest(file: UploadFile = File(...)):
+async def ingest(file: UploadFile = File(...), source: str = Form(None)):
     """
     Upload and ingest a document into the vector store.
-    OPTIMIZED for speed and reliability.
+    ROBUST error handling - always returns JSON.
     """
     global upload_progress
     
@@ -90,37 +105,60 @@ async def ingest(file: UploadFile = File(...)):
         # LAZY IMPORT - only load when endpoint is called!
         from app.ingest import ingest_file
         
-        print(f"\n{'='*50}")
+        print(f"\n{'='*60}")
         print(f"INGEST REQUEST STARTED")
-        print(f"{'='*50}")
+        print(f"{'='*60}")
         print(f"Filename: {file.filename}")
         print(f"Content Type: {file.content_type}")
+        print(f"Source: {source}")
+        print(f"Upload directory: {UPLOAD_DIR}")
         
         if not file.filename:
             upload_progress = {"status": "error", "message": "No filename provided", "progress": 0}
             return JSONResponse(
                 status_code=400,
-                content={"error": "No filename provided"}
+                content={"error": "No filename provided", "ingested": 0}
             )
         
-        # Save uploaded file using efficient streaming
+        # Save to /tmp directory (writable on Render)
         upload_progress = {"status": "saving", "message": "Saving file...", "progress": 20}
-        file_path = os.path.join("uploads", file.filename)
+        
+        # Create temp directory for this upload
+        tmp_dir = tempfile.mkdtemp(dir=UPLOAD_DIR)
+        file_path = os.path.join(tmp_dir, file.filename)
         print(f"Saving to: {file_path}")
         
-        # Use shutil.copyfileobj for faster file operations
-        with open(file_path, "wb") as buffer:
-            shutil.copyfileobj(file.file, buffer)
+        # Save file with error handling
+        try:
+            with open(file_path, "wb") as buffer:
+                shutil.copyfileobj(file.file, buffer)
+            print(f"✓ File saved successfully: {file_path}")
+        except Exception as save_error:
+            print(f"✗ Failed to save file: {save_error}")
+            traceback.print_exc()
+            return JSONResponse(
+                status_code=500,
+                content={"error": f"Failed to save file: {str(save_error)}", "ingested": 0}
+            )
         
-        print(f"✓ File saved: {file_path}")
+        # Verify file exists and is readable
+        if not os.path.exists(file_path):
+            return JSONResponse(
+                status_code=500,
+                content={"error": "File was not saved correctly", "ingested": 0}
+            )
+        
+        file_size = os.path.getsize(file_path)
+        print(f"✓ File verified: {file_size} bytes")
         
         # Ingest the document
         upload_progress = {"status": "processing", "message": "Processing document...", "progress": 40}
         print("Starting document ingestion...")
-        result = ingest_file(file_path)
+        
+        result = ingest_file(file_path, source=source or file.filename)
         
         # Check if there was an error in ingest_file
-        if "error" in result:
+        if isinstance(result, dict) and "error" in result:
             print(f"✗ Ingestion failed: {result['error']}")
             upload_progress = {"status": "error", "message": result['error'], "progress": 0}
             return JSONResponse(
@@ -128,32 +166,45 @@ async def ingest(file: UploadFile = File(...)):
                 content=result
             )
         
-        print(f"✓ SUCCESS: Ingested {result['ingested']} chunks")
-        print(f"{'='*50}\n")
+        print(f"✓ SUCCESS: Ingested {result.get('ingested', 0)} chunks")
+        print(f"{'='*60}\n")
         
         upload_progress = {"status": "complete", "message": "Upload successful!", "progress": 100}
         
-        return JSONResponse(content=result)
+        return JSONResponse(
+            status_code=200,
+            content=result
+        )
     
     except Exception as e:
         error_msg = str(e)
-        print(f"\n{'='*50}")
+        tb = traceback.format_exc()
+        
+        print(f"\n{'='*60}")
         print(f"✗ CRITICAL ERROR in /ingest endpoint")
-        print(f"✗ Error: {error_msg}")
-        traceback.print_exc()
-        print(f"{'='*50}\n")
+        print(f"✗ Error type: {type(e).__name__}")
+        print(f"✗ Error message: {error_msg}")
+        print(f"✗ Full traceback:")
+        print(tb)
+        print(f"{'='*60}\n")
         
         upload_progress = {"status": "error", "message": error_msg, "progress": 0}
         
+        # ALWAYS return JSON, never HTML
         return JSONResponse(
             status_code=500,
-            content={"error": error_msg, "ingested": 0}
+            content={
+                "error": f"{type(e).__name__}: {error_msg}",
+                "ingested": 0,
+                "details": tb.split('\n')[-3:-1]  # Last 2 lines of traceback
+            }
         )
 
 @app.post("/query")
 async def query(question: str = Form(...), k: int = Form(3)):
     """
     Query the RAG system with a question.
+    ROBUST error handling - always returns JSON.
     """
     try:
         # Check if vector store exists first
@@ -169,7 +220,9 @@ async def query(question: str = Form(...), k: int = Form(3)):
         # LAZY IMPORT - only load when endpoint is called!
         from app.query import answer_query
         
-        print(f"\n=== Query Request ===")
+        print(f"\n{'='*60}")
+        print(f"QUERY REQUEST")
+        print(f"{'='*60}")
         print(f"Question: {question}")
         print(f"K: {k}")
         
@@ -191,17 +244,34 @@ async def query(question: str = Form(...), k: int = Form(3)):
                     "chunk": doc.page_content[:200] + "..." if len(doc.page_content) > 200 else doc.page_content
                 })
         
-        print(f"Formatted response: {response}")
-        print("===================\n")
+        print(f"✓ Query completed successfully")
+        print(f"{'='*60}\n")
         
-        return JSONResponse(content=response)
+        return JSONResponse(
+            status_code=200,
+            content=response
+        )
     
     except Exception as e:
-        print(f"ERROR in query endpoint: {str(e)}")
-        traceback.print_exc()
+        error_msg = str(e)
+        tb = traceback.format_exc()
+        
+        print(f"\n{'='*60}")
+        print(f"✗ ERROR in /query endpoint")
+        print(f"✗ Error type: {type(e).__name__}")
+        print(f"✗ Error message: {error_msg}")
+        print(f"✗ Full traceback:")
+        print(tb)
+        print(f"{'='*60}\n")
+        
+        # ALWAYS return JSON, never HTML
         return JSONResponse(
             status_code=500,
-            content={"error": str(e)}
+            content={
+                "error": f"{type(e).__name__}: {error_msg}",
+                "answer": "An error occurred while processing your query.",
+                "details": tb.split('\n')[-3:-1]
+            }
         )
 
 # Mount static files AFTER all routes to avoid conflicts
