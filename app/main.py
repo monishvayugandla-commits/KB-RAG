@@ -6,6 +6,7 @@ from fastapi.middleware.cors import CORSMiddleware
 import os
 import shutil
 import traceback
+from app.storage import init_storage, get_storage_info, check_vector_store_exists
 
 # DON'T import these at module level - causes slow startup!
 # from app.ingest import ingest_file
@@ -27,9 +28,15 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# Ensure directories exist
-os.makedirs("uploads", exist_ok=True)
-os.makedirs("app/vector_store/faiss_index", exist_ok=True)
+# Initialize storage (handles ephemeral filesystem on Render)
+try:
+    storage_paths = init_storage()
+    print(f"✓ Storage initialized: {storage_paths}")
+except Exception as e:
+    print(f"⚠ Storage initialization warning: {e}")
+    # Fallback to basic directories
+    os.makedirs("uploads", exist_ok=True)
+    os.makedirs("app/vector_store/faiss_index", exist_ok=True)
 
 # Health check endpoint
 @app.get("/health")
@@ -37,6 +44,13 @@ os.makedirs("app/vector_store/faiss_index", exist_ok=True)
 async def health_check():
     """Health check endpoint for Render"""
     return JSONResponse({"status": "healthy", "message": "KB-RAG is running"})
+
+@app.get("/storage-info")
+async def storage_info():
+    """Get storage information for debugging"""
+    info = get_storage_info()
+    info["vector_store_initialized"] = check_vector_store_exists()
+    return JSONResponse(info)
 
 @app.get("/")
 @app.head("/")
@@ -116,6 +130,16 @@ async def query(question: str = Form(...), k: int = Form(3)):
     Query the RAG system with a question.
     """
     try:
+        # Check if vector store exists first
+        if not check_vector_store_exists():
+            return JSONResponse(
+                status_code=400,
+                content={
+                    "error": "No documents uploaded yet. Please upload a document first.",
+                    "answer": "Please upload a document before asking questions."
+                }
+            )
+        
         # LAZY IMPORT - only load when endpoint is called!
         from app.query import answer_query
         
