@@ -33,12 +33,9 @@ def get_embeddings():
         try:
             _embeddings = HuggingFaceEmbeddings(
                 model_name="sentence-transformers/all-MiniLM-L6-v2",
-                model_kwargs={'device': 'cpu'},
-                encode_kwargs={
-                    'normalize_embeddings': True, 
-                    'batch_size': 8,  # REDUCED from 16 to 8 for lower memory (512MB limit)
-                    'show_progress_bar': False
-                }
+                model_kwargs={'device': 'cpu'}
+                # encode_kwargs removed - causes parameter conflicts with sentence-transformers
+                # batch_size and normalize_embeddings will use library defaults
             )
             
             elapsed = time.time() - start
