@@ -23,6 +23,11 @@ def get_embeddings():
         print("⏳ Initializing embeddings model (first time only)...")
         print("   This downloads ~90MB model - may take 10-30 seconds...")
         import time
+        import gc
+        
+        # Force garbage collection before loading model
+        gc.collect()
+        
         start = time.time()
         
         try:
@@ -31,13 +36,17 @@ def get_embeddings():
                 model_kwargs={'device': 'cpu'},
                 encode_kwargs={
                     'normalize_embeddings': True, 
-                    'batch_size': 16,  # Reduced from 32 for lower memory
+                    'batch_size': 8,  # REDUCED from 16 to 8 for lower memory (512MB limit)
                     'show_progress_bar': False
                 }
             )
             
             elapsed = time.time() - start
             print(f"✓ Embeddings model ready in {elapsed:.2f}s")
+            
+            # Force garbage collection after loading
+            gc.collect()
+            
         except Exception as e:
             print(f"✗ Failed to load embeddings model: {e}")
             raise
@@ -60,9 +69,11 @@ def chunk_text(text: str, chunk_size=800, chunk_overlap=150):
         raise
 
 def ingest_file(path: str, source: Optional[str] = None):
-    """Ingest a file and add to vector store - OPTIMIZED for speed"""
+    """Ingest a file and add to vector store - OPTIMIZED for speed and memory"""
     try:
         import time
+        import gc
+        
         total_start = time.time()
         
         print(f"\n{'='*60}")
@@ -76,6 +87,10 @@ def ingest_file(path: str, source: Optional[str] = None):
         chunks = chunk_text(raw)
         print(f"[2/6] ✓ Created {len(chunks)} chunks ({time.time()-step_start:.2f}s)")
         
+        # Free memory after loading
+        del raw
+        gc.collect()
+        
         # Prepare documents
         print("[3/6] Preparing documents...")
         step_start = time.time()
@@ -84,6 +99,10 @@ def ingest_file(path: str, source: Optional[str] = None):
             metadata = {"source": source or path, "chunk": i}
             docs.append(Document(page_content=chunk, metadata=metadata))
         print(f"[3/6] ✓ Prepared {len(docs)} documents ({time.time()-step_start:.2f}s)")
+        
+        # Free memory
+        del chunks
+        gc.collect()
         
         print("[4/6] Loading embeddings model...")
         step_start = time.time()
@@ -98,19 +117,51 @@ def ingest_file(path: str, source: Optional[str] = None):
         
         print("[5/6] Processing vector store...")
         step_start = time.time()
-        if index_files_exist:
-            print("      Loading existing vector store...")
-            vectordb = FAISS.load_local(
-                INDEX_DIR, 
-                embeddings, 
-                allow_dangerous_deserialization=True
-            )
-            print("      Adding new documents...")
-            vectordb.add_documents(docs)
+        
+        # Process in smaller batches if we have many documents
+        if len(docs) > 50:
+            print(f"      Processing {len(docs)} documents in batches to save memory...")
+            
+            if index_files_exist:
+                vectordb = FAISS.load_local(
+                    INDEX_DIR, 
+                    embeddings, 
+                    allow_dangerous_deserialization=True
+                )
+            else:
+                # Create initial index with first batch
+                batch_size = 25
+                vectordb = FAISS.from_documents(docs[:batch_size], embeddings)
+                docs = docs[batch_size:]
+                gc.collect()
+            
+            # Add remaining documents in batches
+            batch_size = 25
+            for i in range(0, len(docs), batch_size):
+                batch = docs[i:i+batch_size]
+                print(f"      Adding batch {i//batch_size + 1} ({len(batch)} docs)...")
+                vectordb.add_documents(batch)
+                gc.collect()
         else:
-            print("      Creating new vector store...")
-            vectordb = FAISS.from_documents(docs, embeddings)
+            # Process all at once for small document sets
+            if index_files_exist:
+                print("      Loading existing vector store...")
+                vectordb = FAISS.load_local(
+                    INDEX_DIR, 
+                    embeddings, 
+                    allow_dangerous_deserialization=True
+                )
+                print("      Adding new documents...")
+                vectordb.add_documents(docs)
+            else:
+                print("      Creating new vector store...")
+                vectordb = FAISS.from_documents(docs, embeddings)
+        
         print(f"[5/6] ✓ Vector store updated ({time.time()-step_start:.2f}s)")
+        
+        # Free memory before saving
+        del docs
+        gc.collect()
         
         print("[6/6] Saving vector store...")
         step_start = time.time()
@@ -118,12 +169,18 @@ def ingest_file(path: str, source: Optional[str] = None):
         print(f"[6/6] ✓ Vector store saved ({time.time()-step_start:.2f}s)")
         
         total_time = time.time() - total_start
+        num_docs = vectordb.index.ntotal
+        
+        # Final cleanup
+        del vectordb
+        gc.collect()
+        
         print(f"{'='*60}")
-        print(f"✓ SUCCESS: Ingested {len(docs)} chunks in {total_time:.2f}s")
+        print(f"✓ SUCCESS: Ingested {num_docs} chunks in {total_time:.2f}s")
         print(f"{'='*60}\n")
         
         return {
-            "ingested": len(docs), 
+            "ingested": num_docs, 
             "source": source or path,
             "time_seconds": round(total_time, 2)
         }

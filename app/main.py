@@ -124,10 +124,15 @@ async def ingest(file: UploadFile = File(...), source: str = Form(None)):
     """
     Upload and ingest a document into the vector store.
     ROBUST error handling - always returns JSON.
+    MEMORY OPTIMIZED for Render free tier (512MB limit).
     """
     global upload_progress
+    import gc
     
     try:
+        # Force garbage collection before starting
+        gc.collect()
+        
         upload_progress = {"status": "starting", "message": "Initializing upload...", "progress": 5}
         
         # LAZY IMPORT - only load when endpoint is called!
@@ -198,6 +203,10 @@ async def ingest(file: UploadFile = File(...), source: str = Form(None)):
         print(f"{'='*60}\n")
         
         upload_progress = {"status": "complete", "message": "Upload successful!", "progress": 100}
+        
+        # Force garbage collection after operation
+        import gc
+        gc.collect()
         
         return JSONResponse(
             status_code=200,
