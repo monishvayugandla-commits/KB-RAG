@@ -21,8 +21,11 @@ Question: {question}
 Answer concisely and include the source metadata for each supporting sentence where possible.
 """
 
-def get_retriever(k=3):
-    """Get retriever from vector store - using shared embeddings"""
+def get_retriever(k=None):
+    """Get retriever from vector store - using shared embeddings
+    
+    If k is None, automatically retrieves ALL chunks for maximum accuracy
+    """
     try:
         print(f"Loading vector store from: {INDEX_DIR}")
         embeddings = get_embeddings()  # Use singleton
@@ -32,13 +35,25 @@ def get_retriever(k=3):
         
         vectordb = FAISS.load_local(INDEX_DIR, embeddings, allow_dangerous_deserialization=True)
         print(f"✓ Vector store loaded")
+        
+        # Auto-determine k: use all chunks for best accuracy
+        if k is None:
+            total_chunks = vectordb.index.ntotal
+            k = total_chunks
+            print(f"📊 Auto-selecting k={k} (all available chunks for maximum accuracy)")
+        else:
+            print(f"📊 Using k={k} chunks")
+        
         return vectordb.as_retriever(search_kwargs={"k": k})
     except Exception as e:
         print(f"✗ Error loading vector store: {str(e)}")
         raise
 
-def answer_query(question: str, k=3, model="gemini-2.0-flash-exp"):
-    """Answer a question using RAG - OPTIMIZED"""
+def answer_query(question: str, k=None, model="gemini-2.0-flash-exp"):
+    """Answer a question using RAG - OPTIMIZED
+    
+    If k is None, automatically uses ALL chunks for maximum accuracy
+    """
     try:
         # Check for API key first
         api_key = os.getenv("GOOGLE_API_KEY")
@@ -49,7 +64,10 @@ def answer_query(question: str, k=3, model="gemini-2.0-flash-exp"):
                 "Settings → Environment → Add GOOGLE_API_KEY"
             )
         
-        print(f"[1/4] Getting retriever with k={k}")
+        if k is None:
+            print(f"[1/4] Getting retriever (auto-selecting all chunks)")
+        else:
+            print(f"[1/4] Getting retriever with k={k}")
         retriever = get_retriever(k)
         prompt = PromptTemplate(template=PROMPT_TEMPLATE, input_variables=["context", "question"])
 

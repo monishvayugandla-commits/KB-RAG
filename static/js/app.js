@@ -111,7 +111,6 @@ async function uploadDocument() {
 
 async function queryDocuments() {
     const query = document.getElementById('queryInput').value;
-    const k = document.getElementById('kInput').value;
     const statusDiv = document.getElementById('queryStatus');
     const resultsSection = document.getElementById('resultsSection');
     const answerBox = document.getElementById('answerBox');
@@ -122,12 +121,12 @@ async function queryDocuments() {
         return;
     }
     
-    statusDiv.innerHTML = '<div class="loader"></div><p style="color: #b3b3b3; margin-top: 10px;">⏳ Querying...</p>';
+    statusDiv.innerHTML = '<div class="loader"></div><p style="color: #b3b3b3; margin-top: 10px;">⏳ Querying... (using all available context for best accuracy)</p>';
     resultsSection.style.display = 'none';
     
     const formData = new FormData();
     formData.append('question', query);
-    formData.append('k', k);
+    // k parameter removed - system now automatically uses all chunks
     
     try {
         // 120 second timeout for queries (Gemini can be slow)

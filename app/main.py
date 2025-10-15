@@ -239,10 +239,11 @@ async def ingest(file: UploadFile = File(...), source: str = Form(None)):
         )
 
 @app.post("/query")
-async def query(question: str = Form(...), k: int = Form(3)):
+async def query(question: str = Form(...)):
     """
     Query the RAG system with a question.
     ROBUST error handling - always returns JSON.
+    Now automatically uses ALL chunks from uploaded document for best accuracy.
     """
     try:
         # Check if vector store exists first
@@ -262,9 +263,9 @@ async def query(question: str = Form(...), k: int = Form(3)):
         print(f"QUERY REQUEST")
         print(f"{'='*60}")
         print(f"Question: {question}")
-        print(f"K: {k}")
+        print(f"K: Auto (all chunks)")
         
-        result = answer_query(question, k=k)
+        result = answer_query(question, k=None)  # None = use all chunks
         print(f"Raw result from answer_query: {result}")
         
         # Format response for frontend
