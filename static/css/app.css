@@ -105,6 +105,14 @@ nav {
     font-size: 1.2rem;
     color: #e50914;
     margin: 0;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.history-icon {
+    font-size: 1.3rem;
+    display: inline-block;
 }
 
 .clear-history-btn {
@@ -213,7 +221,6 @@ nav {
     margin-top: 8px;
     text-align: right;
 }
-
 /* Main Content Area */
 .main-content {
     flex: 1;
