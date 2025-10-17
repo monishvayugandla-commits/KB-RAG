@@ -2,6 +2,10 @@
 
 A production-ready knowledge base system using Retrieval-Augmented Generation (RAG) with FastAPI, LangChain, and Google Gemini 2.0 Flash.
 
+
+https://github.com/user-attachments/assets/ac97a2ac-840f-4877-b587-85937097f7c5
+
+
 ## ✨ Key Features
 
 - **Multi-Document Support**: Upload multiple PDFs, TXT, or MD files and query across all documents
